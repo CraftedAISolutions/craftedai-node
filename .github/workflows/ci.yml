@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+    inputs:
+      core_api_ref:
+        description: core-api ref for the e2e and contract-sync jobs
+        default: main
 
 permissions:
   contents: read
@@ -51,3 +55,21 @@ jobs:
           npx attw --pack .
           node -e "require('./dist/index.cjs')"
           node --input-type=module -e "await import('./dist/index.js')"
+
+  contract-sync:
+    name: frozen contract matches core-api
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: CraftedAISolutions/core-api
+          ref: ${{ inputs.core_api_ref || 'main' }}
+          token: ${{ secrets.CORE_API_READ_TOKEN }}
+          path: core-api
+      - name: Byte-compare the copied contract files and vectors
+        run: |
+          cmp core-api/src/domain/request-signing/request-token-wire.ts test/contract/core-api/request-token-wire.ts
+          cmp core-api/src/domain/request-signing/delegation-token-wire.ts test/contract/core-api/delegation-token-wire.ts
+          cmp core-api/src/domain/embed/embed-wire-constants.ts test/contract/core-api/embed-wire-constants.ts
+          cmp core-api/test/vectors/request-token.json test/vectors/request-token.json

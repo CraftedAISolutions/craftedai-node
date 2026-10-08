@@ -1,0 +1,714 @@
+{
+  "WARNING": "TEST-ONLY. Every key and secret in this file is derived from a public seed and is compromised by design. Never deploy any of it. core-api refuses these kids in EMBED_SIGNING_KEYS.",
+  "version": 1,
+  "config": {
+    "issuer": "https://api.craftedai.test",
+    "orgId": "0b6f0c1e-5d6a-4d39-9a51-8f0e5c3b2a10",
+    "integrationId": "7c1d2e3f-4a5b-4c6d-8e7f-90a1b2c3d4e5",
+    "publicUrl": "https://mcp.customer.test/mcp",
+    "appSecret": "vDU0DTx5fN9yVsoEtkbqdj7KEZH0-81gtcZhrnYxxXo",
+    "requireDelegation": true,
+    "delegationCallLimit": 20
+  },
+  "jwks": {
+    "keys": [
+      {
+        "kty": "OKP",
+        "crv": "Ed25519",
+        "x": "m7lQTamkbt82g45zLo7sH9MPph4QoWYr0M425R5fjMU",
+        "kid": "_iUNiD3msWZh2EfcdIOLq-79H-Wt-zW3LObdQ94YKDA",
+        "alg": "EdDSA",
+        "use": "sig"
+      },
+      {
+        "kty": "OKP",
+        "crv": "Ed25519",
+        "x": "sJBTox1kj2GaPjCdsxANuVsWSBCWEp3z8eDgdSVhQcQ",
+        "kid": "VxXG3LHaHjIYjqD4mDtShqDcOCQ1Ea2G3ldXvPbMHlA",
+        "alg": "EdDSA",
+        "use": "sig"
+      }
+    ]
+  },
+  "testOnlyPrivateKeys": {
+    "current": {
+      "kty": "OKP",
+      "crv": "Ed25519",
+      "x": "m7lQTamkbt82g45zLo7sH9MPph4QoWYr0M425R5fjMU",
+      "d": "RPqgob7BG6xyKtBsrFSx4SX3Mj6ALb1zmpLQzBZAgao",
+      "kid": "_iUNiD3msWZh2EfcdIOLq-79H-Wt-zW3LObdQ94YKDA",
+      "alg": "EdDSA"
+    },
+    "next": {
+      "kty": "OKP",
+      "crv": "Ed25519",
+      "x": "sJBTox1kj2GaPjCdsxANuVsWSBCWEp3z8eDgdSVhQcQ",
+      "d": "7-Vf7fLqVwv_oe7pmCr-sqlkItWPxdqy9w1y-aVQbdE",
+      "kid": "VxXG3LHaHjIYjqD4mDtShqDcOCQ1Ea2G3ldXvPbMHlA",
+      "alg": "EdDSA"
+    },
+    "notInJwks": {
+      "kty": "OKP",
+      "crv": "Ed25519",
+      "x": "4yC2vRCyR8GfcMISNBOmXBMwOPMJBYrQitnIlkbeZcs",
+      "d": "p9UpWhc_NXS2hrIx4fXK3tk8xEdqWD2MeDhhJAzNJSc",
+      "kid": "zcfL3RW9YWf_k--PzlvAYmAi7UzQg-lfjEpLKGg4WPM",
+      "alg": "EdDSA"
+    }
+  },
+  "cases": [
+    {
+      "name": "valid_tools_list",
+      "description": "tools/list, no end user, current key.",
+      "now": 1790000000,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "content-type": "application/json",
+          "x-craftedai-request": "eyJhbGciOiJFZERTQSIsInR5cCI6ImNyYWZ0ZWRhaS1yZXErand0Iiwia2lkIjoiX2lVTmlEM21zV1poMkVmY2RJT0xxLTc5SC1XdC16VzNMT2JkUTk0WUtEQSJ9.eyJpc3MiOiJodHRwczovL2FwaS5jcmFmdGVkYWkudGVzdCIsImF1ZCI6Imh0dHBzOi8vbWNwLmN1c3RvbWVyLnRlc3QvbWNwIiwic3ViIjoiMGI2ZjBjMWUtNWQ2YS00ZDM5LTlhNTEtOGYwZTVjM2IyYTEwIiwiaWlkIjoiN2MxZDJlM2YtNGE1Yi00YzZkLThlN2YtOTBhMWIyYzNkNGU1IiwiaWF0IjoxNzkwMDAwMDAwLCJleHAiOjE3OTAwMDAwNjAsImp0aSI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMSIsImJoIjoiRjdEa19vaVkwUGUyYU4wVU45TUhnbWJvMFhDOFNRNjdzQkxpdTd6WHVSTSJ9.6x52arMsFvNppcvmW-xK9BjBCKMwlwiSn4s3BTsYIh-eJZtLo4xZ_opfsjBEg5YnORAh_KbZicj6xXGXCHg5Dg"
+        },
+        "body": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\",\"params\":{}}"
+      },
+      "expected": {
+        "ok": true,
+        "orgId": "0b6f0c1e-5d6a-4d39-9a51-8f0e5c3b2a10",
+        "user": null,
+        "delegated": false
+      }
+    },
+    {
+      "name": "valid_tools_call_with_delegation",
+      "description": "tools/call with act and a valid delegation for the same user.",
+      "now": 1790000000,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "content-type": "application/json",
+          "x-craftedai-request": "eyJhbGciOiJFZERTQSIsInR5cCI6ImNyYWZ0ZWRhaS1yZXErand0Iiwia2lkIjoiX2lVTmlEM21zV1poMkVmY2RJT0xxLTc5SC1XdC16VzNMT2JkUTk0WUtEQSJ9.eyJpc3MiOiJodHRwczovL2FwaS5jcmFmdGVkYWkudGVzdCIsImF1ZCI6Imh0dHBzOi8vbWNwLmN1c3RvbWVyLnRlc3QvbWNwIiwic3ViIjoiMGI2ZjBjMWUtNWQ2YS00ZDM5LTlhNTEtOGYwZTVjM2IyYTEwIiwiaWlkIjoiN2MxZDJlM2YtNGE1Yi00YzZkLThlN2YtOTBhMWIyYzNkNGU1IiwiaWF0IjoxNzkwMDAwMDAwLCJleHAiOjE3OTAwMDAwNjAsImp0aSI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMiIsImJoIjoiUm5fbUNwTExBVk4xQlFKNWJkOWJFSUFjYUotWnVfOGNNSFE3Qk9IXzNxcyIsImFjdCI6eyJleHRlcm5hbFVzZXJJZCI6Im1lbWJlci00ODIxIiwiY2hhbm5lbCI6ImFwaSIsImNvbnZlcnNhdGlvbklkIjoiM2EyYjFjMGQtOWU4Zi00YTdiLThjNmQtNWU0ZjNhMmIxYzBkIn19.C5jJG842AT-nutHURVTJaObHTRWs1OfGJD7Q7G-J4PXhwHLt6NvmIA4AyCdaNh67kt2SqTy75IDCxSWPp-mmDA",
+          "x-craftedai-actor-delegation": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJvcmciOiIwYjZmMGMxZS01ZDZhLTRkMzktOWE1MS04ZjBlNWMzYjJhMTAiLCJpc3MiOiJjcmFmdGVkYWktbm9kZSIsImF1ZCI6ImNyYWZ0ZWRhaS1kZWxlZ2F0aW9uIiwic3ViIjoibWVtYmVyLTQ4MjEiLCJpYXQiOjE3OTAwMDAwMDAsImV4cCI6MTc5MDAwMDMwMCwianRpIjoiZDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDAxIn0.amL-dHGK5mldkvoC_aNh7qRA8O83bBt-S_PQXdLqZHQ"
+        },
+        "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"cancel_subscription\",\"arguments\":{\"subscriptionId\":\"sub_123\"}}}"
+      },
+      "expected": {
+        "ok": true,
+        "orgId": "0b6f0c1e-5d6a-4d39-9a51-8f0e5c3b2a10",
+        "user": "member-4821",
+        "delegated": true
+      }
+    },
+    {
+      "name": "valid_get_stream_empty_body",
+      "description": "GET event stream: no body, bh is the hash of the empty string.",
+      "now": 1790000000,
+      "request": {
+        "method": "GET",
+        "headers": {
+          "x-craftedai-request": "eyJhbGciOiJFZERTQSIsInR5cCI6ImNyYWZ0ZWRhaS1yZXErand0Iiwia2lkIjoiX2lVTmlEM21zV1poMkVmY2RJT0xxLTc5SC1XdC16VzNMT2JkUTk0WUtEQSJ9.eyJpc3MiOiJodHRwczovL2FwaS5jcmFmdGVkYWkudGVzdCIsImF1ZCI6Imh0dHBzOi8vbWNwLmN1c3RvbWVyLnRlc3QvbWNwIiwic3ViIjoiMGI2ZjBjMWUtNWQ2YS00ZDM5LTlhNTEtOGYwZTVjM2IyYTEwIiwiaWlkIjoiN2MxZDJlM2YtNGE1Yi00YzZkLThlN2YtOTBhMWIyYzNkNGU1IiwiaWF0IjoxNzkwMDAwMDAwLCJleHAiOjE3OTAwMDAwNjAsImp0aSI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMyIsImJoIjoiNDdERVFwajhIQlNhLV9USW1XLTVKQ2V1UWVSa201Tk1wSldaRzNoU3VGVSJ9.bv_BxRIx7tj37BKGZoWM2siSWBt7I8CKhKunOy8mTCBoF3Nvzd4DzxAXgeh2zgJlWIYVLMntlIxu2BnW3kbbDw"
+        },
+        "body": null
+      },
+      "expected": {
+        "ok": true,
+        "orgId": "0b6f0c1e-5d6a-4d39-9a51-8f0e5c3b2a10",
+        "user": null,
+        "delegated": false
+      }
+    },
+    {
+      "name": "valid_next_key",
+      "description": "Signed by the `next` key, which the JWKS already publishes during a rotation.",
+      "now": 1790000000,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "content-type": "application/json",
+          "x-craftedai-request": "eyJhbGciOiJFZERTQSIsInR5cCI6ImNyYWZ0ZWRhaS1yZXErand0Iiwia2lkIjoiVnhYRzNMSGFIaklZanFENG1EdFNocURjT0NRMUVhMkczbGRYdlBiTUhsQSJ9.eyJpc3MiOiJodHRwczovL2FwaS5jcmFmdGVkYWkudGVzdCIsImF1ZCI6Imh0dHBzOi8vbWNwLmN1c3RvbWVyLnRlc3QvbWNwIiwic3ViIjoiMGI2ZjBjMWUtNWQ2YS00ZDM5LTlhNTEtOGYwZTVjM2IyYTEwIiwiaWlkIjoiN2MxZDJlM2YtNGE1Yi00YzZkLThlN2YtOTBhMWIyYzNkNGU1IiwiaWF0IjoxNzkwMDAwMDAwLCJleHAiOjE3OTAwMDAwNjAsImp0aSI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwNCIsImJoIjoiRjdEa19vaVkwUGUyYU4wVU45TUhnbWJvMFhDOFNRNjdzQkxpdTd6WHVSTSJ9.V9c4CgrJ5jOiMCij4iPohOPeZvz7nw6BS1xy4uf6DAEY1o5PJdU2G6GmnmAe9HaNSEq9TdxDIF8a0lP53nuwBQ"
+        },
+        "body": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\",\"params\":{}}"
+      },
+      "expected": {
+        "ok": true,
+        "orgId": "0b6f0c1e-5d6a-4d39-9a51-8f0e5c3b2a10",
+        "user": null,
+        "delegated": false
+      }
+    },
+    {
+      "name": "valid_clock_skew_iat_59s_ahead",
+      "description": "Verifier clock 59 s behind core-api: iat is 59 s in the verifier's future.",
+      "now": 1789999941,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "content-type": "application/json",
+          "x-craftedai-request": "eyJhbGciOiJFZERTQSIsInR5cCI6ImNyYWZ0ZWRhaS1yZXErand0Iiwia2lkIjoiX2lVTmlEM21zV1poMkVmY2RJT0xxLTc5SC1XdC16VzNMT2JkUTk0WUtEQSJ9.eyJpc3MiOiJodHRwczovL2FwaS5jcmFmdGVkYWkudGVzdCIsImF1ZCI6Imh0dHBzOi8vbWNwLmN1c3RvbWVyLnRlc3QvbWNwIiwic3ViIjoiMGI2ZjBjMWUtNWQ2YS00ZDM5LTlhNTEtOGYwZTVjM2IyYTEwIiwiaWlkIjoiN2MxZDJlM2YtNGE1Yi00YzZkLThlN2YtOTBhMWIyYzNkNGU1IiwiaWF0IjoxNzkwMDAwMDAwLCJleHAiOjE3OTAwMDAwNjAsImp0aSI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMSIsImJoIjoiRjdEa19vaVkwUGUyYU4wVU45TUhnbWJvMFhDOFNRNjdzQkxpdTd6WHVSTSJ9.6x52arMsFvNppcvmW-xK9BjBCKMwlwiSn4s3BTsYIh-eJZtLo4xZ_opfsjBEg5YnORAh_KbZicj6xXGXCHg5Dg"
+        },
+        "body": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\",\"params\":{}}"
+      },
+      "expected": {
+        "ok": true,
+        "orgId": "0b6f0c1e-5d6a-4d39-9a51-8f0e5c3b2a10",
+        "user": null,
+        "delegated": false
+      }
+    },
+    {
+      "name": "valid_tools_call_without_act",
+      "description": "tools/call with no end user (e.g. a WhatsApp turn): no delegation required.",
+      "now": 1790000000,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "content-type": "application/json",
+          "x-craftedai-request": "eyJhbGciOiJFZERTQSIsInR5cCI6ImNyYWZ0ZWRhaS1yZXErand0Iiwia2lkIjoiX2lVTmlEM21zV1poMkVmY2RJT0xxLTc5SC1XdC16VzNMT2JkUTk0WUtEQSJ9.eyJpc3MiOiJodHRwczovL2FwaS5jcmFmdGVkYWkudGVzdCIsImF1ZCI6Imh0dHBzOi8vbWNwLmN1c3RvbWVyLnRlc3QvbWNwIiwic3ViIjoiMGI2ZjBjMWUtNWQ2YS00ZDM5LTlhNTEtOGYwZTVjM2IyYTEwIiwiaWlkIjoiN2MxZDJlM2YtNGE1Yi00YzZkLThlN2YtOTBhMWIyYzNkNGU1IiwiaWF0IjoxNzkwMDAwMDAwLCJleHAiOjE3OTAwMDAwNjAsImp0aSI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwNSIsImJoIjoiUm5fbUNwTExBVk4xQlFKNWJkOWJFSUFjYUotWnVfOGNNSFE3Qk9IXzNxcyJ9.PDWf1frp36W9cjNBfoNSKayid3EkXkkcAD2JZH5zFuea-jkLfR5MydSrCoBkL1f8B5QpCBmRIpqio8M3PbDuDg"
+        },
+        "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"cancel_subscription\",\"arguments\":{\"subscriptionId\":\"sub_123\"}}}"
+      },
+      "expected": {
+        "ok": true,
+        "orgId": "0b6f0c1e-5d6a-4d39-9a51-8f0e5c3b2a10",
+        "user": null,
+        "delegated": false
+      }
+    },
+    {
+      "name": "valid_delegation_19_prior_uses",
+      "description": "Delegation used 19 times before: the 20th call is allowed (limit 20).",
+      "now": 1790000000,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "content-type": "application/json",
+          "x-craftedai-request": "eyJhbGciOiJFZERTQSIsInR5cCI6ImNyYWZ0ZWRhaS1yZXErand0Iiwia2lkIjoiX2lVTmlEM21zV1poMkVmY2RJT0xxLTc5SC1XdC16VzNMT2JkUTk0WUtEQSJ9.eyJpc3MiOiJodHRwczovL2FwaS5jcmFmdGVkYWkudGVzdCIsImF1ZCI6Imh0dHBzOi8vbWNwLmN1c3RvbWVyLnRlc3QvbWNwIiwic3ViIjoiMGI2ZjBjMWUtNWQ2YS00ZDM5LTlhNTEtOGYwZTVjM2IyYTEwIiwiaWlkIjoiN2MxZDJlM2YtNGE1Yi00YzZkLThlN2YtOTBhMWIyYzNkNGU1IiwiaWF0IjoxNzkwMDAwMDAwLCJleHAiOjE3OTAwMDAwNjAsImp0aSI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMiIsImJoIjoiUm5fbUNwTExBVk4xQlFKNWJkOWJFSUFjYUotWnVfOGNNSFE3Qk9IXzNxcyIsImFjdCI6eyJleHRlcm5hbFVzZXJJZCI6Im1lbWJlci00ODIxIiwiY2hhbm5lbCI6ImFwaSIsImNvbnZlcnNhdGlvbklkIjoiM2EyYjFjMGQtOWU4Zi00YTdiLThjNmQtNWU0ZjNhMmIxYzBkIn19.C5jJG842AT-nutHURVTJaObHTRWs1OfGJD7Q7G-J4PXhwHLt6NvmIA4AyCdaNh67kt2SqTy75IDCxSWPp-mmDA",
+          "x-craftedai-actor-delegation": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJvcmciOiIwYjZmMGMxZS01ZDZhLTRkMzktOWE1MS04ZjBlNWMzYjJhMTAiLCJpc3MiOiJjcmFmdGVkYWktbm9kZSIsImF1ZCI6ImNyYWZ0ZWRhaS1kZWxlZ2F0aW9uIiwic3ViIjoibWVtYmVyLTQ4MjEiLCJpYXQiOjE3OTAwMDAwMDAsImV4cCI6MTc5MDAwMDMwMCwianRpIjoiZDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDAxIn0.amL-dHGK5mldkvoC_aNh7qRA8O83bBt-S_PQXdLqZHQ"
+        },
+        "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"cancel_subscription\",\"arguments\":{\"subscriptionId\":\"sub_123\"}}}"
+      },
+      "state": {
+        "delegationUses": {
+          "d0000000-0000-4000-8000-000000000001": 19
+        }
+      },
+      "expected": {
+        "ok": true,
+        "orgId": "0b6f0c1e-5d6a-4d39-9a51-8f0e5c3b2a10",
+        "user": "member-4821",
+        "delegated": true
+      }
+    },
+    {
+      "name": "missing_token",
+      "description": "No X-CraftedAI-Request header.",
+      "now": 1790000000,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "content-type": "application/json"
+        },
+        "body": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\",\"params\":{}}"
+      },
+      "expected": {
+        "ok": false,
+        "reason": "missing_token"
+      }
+    },
+    {
+      "name": "bad_signature_tampered_payload",
+      "description": "Payload rewritten (sub changed), original signature kept.",
+      "now": 1790000000,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "content-type": "application/json",
+          "x-craftedai-request": "eyJhbGciOiJFZERTQSIsInR5cCI6ImNyYWZ0ZWRhaS1yZXErand0Iiwia2lkIjoiX2lVTmlEM21zV1poMkVmY2RJT0xxLTc5SC1XdC16VzNMT2JkUTk0WUtEQSJ9.eyJpc3MiOiJodHRwczovL2FwaS5jcmFmdGVkYWkudGVzdCIsImF1ZCI6Imh0dHBzOi8vbWNwLmN1c3RvbWVyLnRlc3QvbWNwIiwic3ViIjoiOWU4ZDdjNmItNWE0OS00MzgyLTkxNzAtNmY1ZTRkM2MyYjFhIiwiaWlkIjoiN2MxZDJlM2YtNGE1Yi00YzZkLThlN2YtOTBhMWIyYzNkNGU1IiwiaWF0IjoxNzkwMDAwMDAwLCJleHAiOjE3OTAwMDAwNjAsImp0aSI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMSIsImJoIjoiRjdEa19vaVkwUGUyYU4wVU45TUhnbWJvMFhDOFNRNjdzQkxpdTd6WHVSTSJ9.6x52arMsFvNppcvmW-xK9BjBCKMwlwiSn4s3BTsYIh-eJZtLo4xZ_opfsjBEg5YnORAh_KbZicj6xXGXCHg5Dg"
+        },
+        "body": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\",\"params\":{}}"
+      },
+      "expected": {
+        "ok": false,
+        "reason": "bad_signature"
+      }
+    },
+    {
+      "name": "bad_signature_alg_none",
+      "description": "alg \"none\" with an empty signature.",
+      "now": 1790000000,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "content-type": "application/json",
+          "x-craftedai-request": "eyJhbGciOiJub25lIiwidHlwIjoiY3JhZnRlZGFpLXJlcStqd3QiLCJraWQiOiJfaVVOaUQzbXNXWmgyRWZjZElPTHEtNzlILVd0LXpXM0xPYmRROTRZS0RBIn0.eyJpc3MiOiJodHRwczovL2FwaS5jcmFmdGVkYWkudGVzdCIsImF1ZCI6Imh0dHBzOi8vbWNwLmN1c3RvbWVyLnRlc3QvbWNwIiwic3ViIjoiMGI2ZjBjMWUtNWQ2YS00ZDM5LTlhNTEtOGYwZTVjM2IyYTEwIiwiaWlkIjoiN2MxZDJlM2YtNGE1Yi00YzZkLThlN2YtOTBhMWIyYzNkNGU1IiwiaWF0IjoxNzkwMDAwMDAwLCJleHAiOjE3OTAwMDAwNjAsImp0aSI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAxMCIsImJoIjoiRjdEa19vaVkwUGUyYU4wVU45TUhnbWJvMFhDOFNRNjdzQkxpdTd6WHVSTSJ9."
+        },
+        "body": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\",\"params\":{}}"
+      },
+      "expected": {
+        "ok": false,
+        "reason": "bad_signature"
+      }
+    },
+    {
+      "name": "bad_signature_hs256_key_confusion",
+      "description": "alg HS256 keyed with the public key bytes of the current kid.",
+      "now": 1790000000,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "content-type": "application/json",
+          "x-craftedai-request": "eyJhbGciOiJIUzI1NiIsInR5cCI6ImNyYWZ0ZWRhaS1yZXErand0Iiwia2lkIjoiX2lVTmlEM21zV1poMkVmY2RJT0xxLTc5SC1XdC16VzNMT2JkUTk0WUtEQSJ9.eyJpc3MiOiJodHRwczovL2FwaS5jcmFmdGVkYWkudGVzdCIsImF1ZCI6Imh0dHBzOi8vbWNwLmN1c3RvbWVyLnRlc3QvbWNwIiwic3ViIjoiMGI2ZjBjMWUtNWQ2YS00ZDM5LTlhNTEtOGYwZTVjM2IyYTEwIiwiaWlkIjoiN2MxZDJlM2YtNGE1Yi00YzZkLThlN2YtOTBhMWIyYzNkNGU1IiwiaWF0IjoxNzkwMDAwMDAwLCJleHAiOjE3OTAwMDAwNjAsImp0aSI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAxMSIsImJoIjoiRjdEa19vaVkwUGUyYU4wVU45TUhnbWJvMFhDOFNRNjdzQkxpdTd6WHVSTSJ9.33lechIisuCRJ2vRI3PkPNwfHyY7q2JzqUrOjJd23H4"
+        },
+        "body": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\",\"params\":{}}"
+      },
+      "expected": {
+        "ok": false,
+        "reason": "bad_signature"
+      }
+    },
+    {
+      "name": "bad_signature_wrong_typ",
+      "description": "Correctly signed, but typ is \"JWT\" instead of craftedai-req+jwt.",
+      "now": 1790000000,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "content-type": "application/json",
+          "x-craftedai-request": "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCIsImtpZCI6Il9pVU5pRDNtc1daaDJFZmNkSU9McS03OUgtV3QtelczTE9iZFE5NFlLREEifQ.eyJpc3MiOiJodHRwczovL2FwaS5jcmFmdGVkYWkudGVzdCIsImF1ZCI6Imh0dHBzOi8vbWNwLmN1c3RvbWVyLnRlc3QvbWNwIiwic3ViIjoiMGI2ZjBjMWUtNWQ2YS00ZDM5LTlhNTEtOGYwZTVjM2IyYTEwIiwiaWlkIjoiN2MxZDJlM2YtNGE1Yi00YzZkLThlN2YtOTBhMWIyYzNkNGU1IiwiaWF0IjoxNzkwMDAwMDAwLCJleHAiOjE3OTAwMDAwNjAsImp0aSI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAxMiIsImJoIjoiRjdEa19vaVkwUGUyYU4wVU45TUhnbWJvMFhDOFNRNjdzQkxpdTd6WHVSTSJ9.5yc3smr6Wbyj-DTiHHlayp6rPAY0xH7XzKKfVhZKEy1gWoS3ZgH1uxLPH95dMfWZ-Y3R__85gTMCpNocUrTvCg"
+        },
+        "body": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\",\"params\":{}}"
+      },
+      "expected": {
+        "ok": false,
+        "reason": "bad_signature"
+      }
+    },
+    {
+      "name": "bad_signature_malformed",
+      "description": "Not a compact JWS.",
+      "now": 1790000000,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "content-type": "application/json",
+          "x-craftedai-request": "not-a-jws"
+        },
+        "body": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\",\"params\":{}}"
+      },
+      "expected": {
+        "ok": false,
+        "reason": "bad_signature"
+      }
+    },
+    {
+      "name": "unknown_key",
+      "description": "kid not present in the JWKS (refetching the JWKS does not help).",
+      "now": 1790000000,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "content-type": "application/json",
+          "x-craftedai-request": "eyJhbGciOiJFZERTQSIsInR5cCI6ImNyYWZ0ZWRhaS1yZXErand0Iiwia2lkIjoiemNmTDNSVzlZV2Zfay0tUHpsdkFZbUFpN1V6UWctbGZqRXBMS0dnNFdQTSJ9.eyJpc3MiOiJodHRwczovL2FwaS5jcmFmdGVkYWkudGVzdCIsImF1ZCI6Imh0dHBzOi8vbWNwLmN1c3RvbWVyLnRlc3QvbWNwIiwic3ViIjoiMGI2ZjBjMWUtNWQ2YS00ZDM5LTlhNTEtOGYwZTVjM2IyYTEwIiwiaWlkIjoiN2MxZDJlM2YtNGE1Yi00YzZkLThlN2YtOTBhMWIyYzNkNGU1IiwiaWF0IjoxNzkwMDAwMDAwLCJleHAiOjE3OTAwMDAwNjAsImp0aSI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAxMyIsImJoIjoiRjdEa19vaVkwUGUyYU4wVU45TUhnbWJvMFhDOFNRNjdzQkxpdTd6WHVSTSJ9.ip_p__UdLdEW1CpUrotmQ41CtVG0YgaamCEyFQbwK0-2lYsj1DJxhN8TdbSg0Kpq0IVup09NdwmTCMLY_yWNDA"
+        },
+        "body": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\",\"params\":{}}"
+      },
+      "expected": {
+        "ok": false,
+        "reason": "unknown_key"
+      }
+    },
+    {
+      "name": "wrong_issuer",
+      "description": "iss is another API origin.",
+      "now": 1790000000,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "content-type": "application/json",
+          "x-craftedai-request": "eyJhbGciOiJFZERTQSIsInR5cCI6ImNyYWZ0ZWRhaS1yZXErand0Iiwia2lkIjoiX2lVTmlEM21zV1poMkVmY2RJT0xxLTc5SC1XdC16VzNMT2JkUTk0WUtEQSJ9.eyJpc3MiOiJodHRwczovL2FwaS5zdGFnaW5nLmNyYWZ0ZWRhaS50ZXN0IiwiYXVkIjoiaHR0cHM6Ly9tY3AuY3VzdG9tZXIudGVzdC9tY3AiLCJzdWIiOiIwYjZmMGMxZS01ZDZhLTRkMzktOWE1MS04ZjBlNWMzYjJhMTAiLCJpaWQiOiI3YzFkMmUzZi00YTViLTRjNmQtOGU3Zi05MGExYjJjM2Q0ZTUiLCJpYXQiOjE3OTAwMDAwMDAsImV4cCI6MTc5MDAwMDA2MCwianRpIjoiMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDE0IiwiYmgiOiJGN0RrX29pWTBQZTJhTjBVTjlNSGdtYm8wWEM4U1E2N3NCTGl1N3pYdVJNIn0.Qx-e-bLW7nHc6uiuMT6ZyzJlnF9QQGSyLx2v7lMPm4m9w9wXq5LxgEnti8gs2s3nZ0H41QiY0yqfygDgIUSmCw"
+        },
+        "body": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\",\"params\":{}}"
+      },
+      "expected": {
+        "ok": false,
+        "reason": "wrong_issuer"
+      }
+    },
+    {
+      "name": "wrong_org",
+      "description": "Another CraftedAI workspace pointed at this MCP URL.",
+      "now": 1790000000,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "content-type": "application/json",
+          "x-craftedai-request": "eyJhbGciOiJFZERTQSIsInR5cCI6ImNyYWZ0ZWRhaS1yZXErand0Iiwia2lkIjoiX2lVTmlEM21zV1poMkVmY2RJT0xxLTc5SC1XdC16VzNMT2JkUTk0WUtEQSJ9.eyJpc3MiOiJodHRwczovL2FwaS5jcmFmdGVkYWkudGVzdCIsImF1ZCI6Imh0dHBzOi8vbWNwLmN1c3RvbWVyLnRlc3QvbWNwIiwic3ViIjoiOWU4ZDdjNmItNWE0OS00MzgyLTkxNzAtNmY1ZTRkM2MyYjFhIiwiaWlkIjoiN2MxZDJlM2YtNGE1Yi00YzZkLThlN2YtOTBhMWIyYzNkNGU1IiwiaWF0IjoxNzkwMDAwMDAwLCJleHAiOjE3OTAwMDAwNjAsImp0aSI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAxNSIsImJoIjoiRjdEa19vaVkwUGUyYU4wVU45TUhnbWJvMFhDOFNRNjdzQkxpdTd6WHVSTSJ9.RKCA212k9lc4lAoNidqSRcV43LiK5SvgWt5Nohapn8FSfuaBBAPnsbsWj2LbjrD6Owrb77z0EwHYuYHbE0RAAw"
+        },
+        "body": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\",\"params\":{}}"
+      },
+      "expected": {
+        "ok": false,
+        "reason": "wrong_org"
+      }
+    },
+    {
+      "name": "wrong_audience",
+      "description": "aud is the internal URL a proxy forwarded to, not the public URL.",
+      "now": 1790000000,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "content-type": "application/json",
+          "x-craftedai-request": "eyJhbGciOiJFZERTQSIsInR5cCI6ImNyYWZ0ZWRhaS1yZXErand0Iiwia2lkIjoiX2lVTmlEM21zV1poMkVmY2RJT0xxLTc5SC1XdC16VzNMT2JkUTk0WUtEQSJ9.eyJpc3MiOiJodHRwczovL2FwaS5jcmFmdGVkYWkudGVzdCIsImF1ZCI6Imh0dHA6Ly8xMC4wLjAuMTI6ODA4MC9tY3AiLCJzdWIiOiIwYjZmMGMxZS01ZDZhLTRkMzktOWE1MS04ZjBlNWMzYjJhMTAiLCJpaWQiOiI3YzFkMmUzZi00YTViLTRjNmQtOGU3Zi05MGExYjJjM2Q0ZTUiLCJpYXQiOjE3OTAwMDAwMDAsImV4cCI6MTc5MDAwMDA2MCwianRpIjoiMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDE2IiwiYmgiOiJGN0RrX29pWTBQZTJhTjBVTjlNSGdtYm8wWEM4U1E2N3NCTGl1N3pYdVJNIn0.6aXKZbBeoJGgnm0W1zeskNlK9xbEiHznR0tegEGOlI8gWf35tM1RQNBz3YtvEOY5SVBOWpNv_pQPSjx0HVn9Cg"
+        },
+        "body": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\",\"params\":{}}"
+      },
+      "expected": {
+        "ok": false,
+        "reason": "wrong_audience"
+      }
+    },
+    {
+      "name": "wrong_audience_trailing_slash",
+      "description": "aud differs only by a trailing slash: audience is compared as an exact string.",
+      "now": 1790000000,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "content-type": "application/json",
+          "x-craftedai-request": "eyJhbGciOiJFZERTQSIsInR5cCI6ImNyYWZ0ZWRhaS1yZXErand0Iiwia2lkIjoiX2lVTmlEM21zV1poMkVmY2RJT0xxLTc5SC1XdC16VzNMT2JkUTk0WUtEQSJ9.eyJpc3MiOiJodHRwczovL2FwaS5jcmFmdGVkYWkudGVzdCIsImF1ZCI6Imh0dHBzOi8vbWNwLmN1c3RvbWVyLnRlc3QvbWNwLyIsInN1YiI6IjBiNmYwYzFlLTVkNmEtNGQzOS05YTUxLThmMGU1YzNiMmExMCIsImlpZCI6IjdjMWQyZTNmLTRhNWItNGM2ZC04ZTdmLTkwYTFiMmMzZDRlNSIsImlhdCI6MTc5MDAwMDAwMCwiZXhwIjoxNzkwMDAwMDYwLCJqdGkiOiIwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwMTciLCJiaCI6IkY3RGtfb2lZMFBlMmFOMFVOOU1IZ21ibzBYQzhTUTY3c0JMaXU3elh1Uk0ifQ._SAKZFIlJAZSSuAcL0thu9YbbievBiUulJM500pQLKLuoKWH30ML-H9I3XWr6-I2x1N5jPoOmGmUk0oKYH9bCg"
+        },
+        "body": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\",\"params\":{}}"
+      },
+      "expected": {
+        "ok": false,
+        "reason": "wrong_audience"
+      }
+    },
+    {
+      "name": "wrong_audience_uppercase_host",
+      "description": "aud differs only by an uppercase host: no URL normalisation.",
+      "now": 1790000000,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "content-type": "application/json",
+          "x-craftedai-request": "eyJhbGciOiJFZERTQSIsInR5cCI6ImNyYWZ0ZWRhaS1yZXErand0Iiwia2lkIjoiX2lVTmlEM21zV1poMkVmY2RJT0xxLTc5SC1XdC16VzNMT2JkUTk0WUtEQSJ9.eyJpc3MiOiJodHRwczovL2FwaS5jcmFmdGVkYWkudGVzdCIsImF1ZCI6Imh0dHBzOi8vTUNQLmN1c3RvbWVyLnRlc3QvbWNwIiwic3ViIjoiMGI2ZjBjMWUtNWQ2YS00ZDM5LTlhNTEtOGYwZTVjM2IyYTEwIiwiaWlkIjoiN2MxZDJlM2YtNGE1Yi00YzZkLThlN2YtOTBhMWIyYzNkNGU1IiwiaWF0IjoxNzkwMDAwMDAwLCJleHAiOjE3OTAwMDAwNjAsImp0aSI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAxOCIsImJoIjoiRjdEa19vaVkwUGUyYU4wVU45TUhnbWJvMFhDOFNRNjdzQkxpdTd6WHVSTSJ9.HyWG2t7Fq-Ca9FLs-IXr4sdpOdRootIZVkVOtgnejID65zLarFvzZvYzTNEBiWmUOO3lU0mhArvICoS6UVCMAg"
+        },
+        "body": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\",\"params\":{}}"
+      },
+      "expected": {
+        "ok": false,
+        "reason": "wrong_audience"
+      }
+    },
+    {
+      "name": "wrong_audience_explicit_default_port",
+      "description": "aud differs only by an explicit default port :443: no URL normalisation.",
+      "now": 1790000000,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "content-type": "application/json",
+          "x-craftedai-request": "eyJhbGciOiJFZERTQSIsInR5cCI6ImNyYWZ0ZWRhaS1yZXErand0Iiwia2lkIjoiX2lVTmlEM21zV1poMkVmY2RJT0xxLTc5SC1XdC16VzNMT2JkUTk0WUtEQSJ9.eyJpc3MiOiJodHRwczovL2FwaS5jcmFmdGVkYWkudGVzdCIsImF1ZCI6Imh0dHBzOi8vbWNwLmN1c3RvbWVyLnRlc3Q6NDQzL21jcCIsInN1YiI6IjBiNmYwYzFlLTVkNmEtNGQzOS05YTUxLThmMGU1YzNiMmExMCIsImlpZCI6IjdjMWQyZTNmLTRhNWItNGM2ZC04ZTdmLTkwYTFiMmMzZDRlNSIsImlhdCI6MTc5MDAwMDAwMCwiZXhwIjoxNzkwMDAwMDYwLCJqdGkiOiIwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwMTkiLCJiaCI6IkY3RGtfb2lZMFBlMmFOMFVOOU1IZ21ibzBYQzhTUTY3c0JMaXU3elh1Uk0ifQ.QP-YFzooUNqss56Jj7fkqJHIZtCnclPjpdGXv-AzHXJeIpYyMf705G3y7AaZjbAp-LeuW0jPzYT-O4UgBjlaCg"
+        },
+        "body": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\",\"params\":{}}"
+      },
+      "expected": {
+        "ok": false,
+        "reason": "wrong_audience"
+      }
+    },
+    {
+      "name": "valid_opaque_jti",
+      "description": "jti is not a UUID: verifiers treat it as an opaque replay key.",
+      "now": 1790000000,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "content-type": "application/json",
+          "x-craftedai-request": "eyJhbGciOiJFZERTQSIsInR5cCI6ImNyYWZ0ZWRhaS1yZXErand0Iiwia2lkIjoiX2lVTmlEM21zV1poMkVmY2RJT0xxLTc5SC1XdC16VzNMT2JkUTk0WUtEQSJ9.eyJpc3MiOiJodHRwczovL2FwaS5jcmFmdGVkYWkudGVzdCIsImF1ZCI6Imh0dHBzOi8vbWNwLmN1c3RvbWVyLnRlc3QvbWNwIiwic3ViIjoiMGI2ZjBjMWUtNWQ2YS00ZDM5LTlhNTEtOGYwZTVjM2IyYTEwIiwiaWlkIjoiN2MxZDJlM2YtNGE1Yi00YzZkLThlN2YtOTBhMWIyYzNkNGU1IiwiaWF0IjoxNzkwMDAwMDAwLCJleHAiOjE3OTAwMDAwNjAsImp0aSI6InJlcS0wMDAxIiwiYmgiOiJGN0RrX29pWTBQZTJhTjBVTjlNSGdtYm8wWEM4U1E2N3NCTGl1N3pYdVJNIn0.bf98YA8U_KAWpkajnmLXfpzccAnV317SrBQ9dMKJHdpPXYt1pQElzauxPar8tgND_1tMSQQrkng1QNrB_1T5Aw"
+        },
+        "body": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\",\"params\":{}}"
+      },
+      "expected": {
+        "ok": true,
+        "orgId": "0b6f0c1e-5d6a-4d39-9a51-8f0e5c3b2a10",
+        "user": null,
+        "delegated": false
+      }
+    },
+    {
+      "name": "bad_signature_kid_missing",
+      "description": "Correctly signed, but the protected header has no kid (violates the header schema, so not unknown_key).",
+      "now": 1790000000,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "content-type": "application/json",
+          "x-craftedai-request": "eyJhbGciOiJFZERTQSIsInR5cCI6ImNyYWZ0ZWRhaS1yZXErand0In0.eyJpc3MiOiJodHRwczovL2FwaS5jcmFmdGVkYWkudGVzdCIsImF1ZCI6Imh0dHBzOi8vbWNwLmN1c3RvbWVyLnRlc3QvbWNwIiwic3ViIjoiMGI2ZjBjMWUtNWQ2YS00ZDM5LTlhNTEtOGYwZTVjM2IyYTEwIiwiaWlkIjoiN2MxZDJlM2YtNGE1Yi00YzZkLThlN2YtOTBhMWIyYzNkNGU1IiwiaWF0IjoxNzkwMDAwMDAwLCJleHAiOjE3OTAwMDAwNjAsImp0aSI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAxYSIsImJoIjoiRjdEa19vaVkwUGUyYU4wVU45TUhnbWJvMFhDOFNRNjdzQkxpdTd6WHVSTSJ9.QScq10PIhs6ea2RkCvHsksQZirvQb7m0MYHnaOWx_wnMBiiNjZ3rVmNVG68sxZZF2DTRIb_lDhIQYP-b3CDCBw"
+        },
+        "body": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\",\"params\":{}}"
+      },
+      "expected": {
+        "ok": false,
+        "reason": "bad_signature"
+      }
+    },
+    {
+      "name": "bad_signature_kid_empty",
+      "description": "Correctly signed, but kid is the empty string.",
+      "now": 1790000000,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "content-type": "application/json",
+          "x-craftedai-request": "eyJhbGciOiJFZERTQSIsInR5cCI6ImNyYWZ0ZWRhaS1yZXErand0Iiwia2lkIjoiIn0.eyJpc3MiOiJodHRwczovL2FwaS5jcmFmdGVkYWkudGVzdCIsImF1ZCI6Imh0dHBzOi8vbWNwLmN1c3RvbWVyLnRlc3QvbWNwIiwic3ViIjoiMGI2ZjBjMWUtNWQ2YS00ZDM5LTlhNTEtOGYwZTVjM2IyYTEwIiwiaWlkIjoiN2MxZDJlM2YtNGE1Yi00YzZkLThlN2YtOTBhMWIyYzNkNGU1IiwiaWF0IjoxNzkwMDAwMDAwLCJleHAiOjE3OTAwMDAwNjAsImp0aSI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAxYiIsImJoIjoiRjdEa19vaVkwUGUyYU4wVU45TUhnbWJvMFhDOFNRNjdzQkxpdTd6WHVSTSJ9.uYW18HlfX3wy_mkX1ogF6TKEHVuEnxppspGH7GwkC8Ptqb2fYIb0-kdRs-pfj6h63Y_Gl4VOiRYbz_DVueJXBg"
+        },
+        "body": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\",\"params\":{}}"
+      },
+      "expected": {
+        "ok": false,
+        "reason": "bad_signature"
+      }
+    },
+    {
+      "name": "bad_signature_kid_oversized",
+      "description": "Correctly signed, but kid is 129 characters (max 128).",
+      "now": 1790000000,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "content-type": "application/json",
+          "x-craftedai-request": "eyJhbGciOiJFZERTQSIsInR5cCI6ImNyYWZ0ZWRhaS1yZXErand0Iiwia2lkIjoia2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2trIn0.eyJpc3MiOiJodHRwczovL2FwaS5jcmFmdGVkYWkudGVzdCIsImF1ZCI6Imh0dHBzOi8vbWNwLmN1c3RvbWVyLnRlc3QvbWNwIiwic3ViIjoiMGI2ZjBjMWUtNWQ2YS00ZDM5LTlhNTEtOGYwZTVjM2IyYTEwIiwiaWlkIjoiN2MxZDJlM2YtNGE1Yi00YzZkLThlN2YtOTBhMWIyYzNkNGU1IiwiaWF0IjoxNzkwMDAwMDAwLCJleHAiOjE3OTAwMDAwNjAsImp0aSI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAxYyIsImJoIjoiRjdEa19vaVkwUGUyYU4wVU45TUhnbWJvMFhDOFNRNjdzQkxpdTd6WHVSTSJ9.OcxMoIfcUzWo1QzmwwQ6xwasCa84DZKeSE6tQkZCW_cJ7MGJWCEl2zP8laVmC18FAF8wFsX2aWDTUXB0A3dDAQ"
+        },
+        "body": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\",\"params\":{}}"
+      },
+      "expected": {
+        "ok": false,
+        "reason": "bad_signature"
+      }
+    },
+    {
+      "name": "valid_delegation_typ_absent",
+      "description": "Delegation token without a typ header member: typ is optional.",
+      "now": 1790000000,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "content-type": "application/json",
+          "x-craftedai-request": "eyJhbGciOiJFZERTQSIsInR5cCI6ImNyYWZ0ZWRhaS1yZXErand0Iiwia2lkIjoiX2lVTmlEM21zV1poMkVmY2RJT0xxLTc5SC1XdC16VzNMT2JkUTk0WUtEQSJ9.eyJpc3MiOiJodHRwczovL2FwaS5jcmFmdGVkYWkudGVzdCIsImF1ZCI6Imh0dHBzOi8vbWNwLmN1c3RvbWVyLnRlc3QvbWNwIiwic3ViIjoiMGI2ZjBjMWUtNWQ2YS00ZDM5LTlhNTEtOGYwZTVjM2IyYTEwIiwiaWlkIjoiN2MxZDJlM2YtNGE1Yi00YzZkLThlN2YtOTBhMWIyYzNkNGU1IiwiaWF0IjoxNzkwMDAwMDAwLCJleHAiOjE3OTAwMDAwNjAsImp0aSI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMiIsImJoIjoiUm5fbUNwTExBVk4xQlFKNWJkOWJFSUFjYUotWnVfOGNNSFE3Qk9IXzNxcyIsImFjdCI6eyJleHRlcm5hbFVzZXJJZCI6Im1lbWJlci00ODIxIiwiY2hhbm5lbCI6ImFwaSIsImNvbnZlcnNhdGlvbklkIjoiM2EyYjFjMGQtOWU4Zi00YTdiLThjNmQtNWU0ZjNhMmIxYzBkIn19.C5jJG842AT-nutHURVTJaObHTRWs1OfGJD7Q7G-J4PXhwHLt6NvmIA4AyCdaNh67kt2SqTy75IDCxSWPp-mmDA",
+          "x-craftedai-actor-delegation": "eyJhbGciOiJIUzI1NiJ9.eyJvcmciOiIwYjZmMGMxZS01ZDZhLTRkMzktOWE1MS04ZjBlNWMzYjJhMTAiLCJpc3MiOiJjcmFmdGVkYWktbm9kZSIsImF1ZCI6ImNyYWZ0ZWRhaS1kZWxlZ2F0aW9uIiwic3ViIjoibWVtYmVyLTQ4MjEiLCJpYXQiOjE3OTAwMDAwMDAsImV4cCI6MTc5MDAwMDMwMCwianRpIjoiZDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDA2In0.MZCI5mXrA7CXwQMW0bYAw5Odm9T-UU3WbunDx004U5U"
+        },
+        "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"cancel_subscription\",\"arguments\":{\"subscriptionId\":\"sub_123\"}}}"
+      },
+      "expected": {
+        "ok": true,
+        "orgId": "0b6f0c1e-5d6a-4d39-9a51-8f0e5c3b2a10",
+        "user": "member-4821",
+        "delegated": true
+      }
+    },
+    {
+      "name": "delegation_invalid_wrong_typ",
+      "description": "Correctly signed delegation whose typ is \"not-JWT\".",
+      "now": 1790000000,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "content-type": "application/json",
+          "x-craftedai-request": "eyJhbGciOiJFZERTQSIsInR5cCI6ImNyYWZ0ZWRhaS1yZXErand0Iiwia2lkIjoiX2lVTmlEM21zV1poMkVmY2RJT0xxLTc5SC1XdC16VzNMT2JkUTk0WUtEQSJ9.eyJpc3MiOiJodHRwczovL2FwaS5jcmFmdGVkYWkudGVzdCIsImF1ZCI6Imh0dHBzOi8vbWNwLmN1c3RvbWVyLnRlc3QvbWNwIiwic3ViIjoiMGI2ZjBjMWUtNWQ2YS00ZDM5LTlhNTEtOGYwZTVjM2IyYTEwIiwiaWlkIjoiN2MxZDJlM2YtNGE1Yi00YzZkLThlN2YtOTBhMWIyYzNkNGU1IiwiaWF0IjoxNzkwMDAwMDAwLCJleHAiOjE3OTAwMDAwNjAsImp0aSI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMiIsImJoIjoiUm5fbUNwTExBVk4xQlFKNWJkOWJFSUFjYUotWnVfOGNNSFE3Qk9IXzNxcyIsImFjdCI6eyJleHRlcm5hbFVzZXJJZCI6Im1lbWJlci00ODIxIiwiY2hhbm5lbCI6ImFwaSIsImNvbnZlcnNhdGlvbklkIjoiM2EyYjFjMGQtOWU4Zi00YTdiLThjNmQtNWU0ZjNhMmIxYzBkIn19.C5jJG842AT-nutHURVTJaObHTRWs1OfGJD7Q7G-J4PXhwHLt6NvmIA4AyCdaNh67kt2SqTy75IDCxSWPp-mmDA",
+          "x-craftedai-actor-delegation": "eyJhbGciOiJIUzI1NiIsInR5cCI6Im5vdC1KV1QifQ.eyJvcmciOiIwYjZmMGMxZS01ZDZhLTRkMzktOWE1MS04ZjBlNWMzYjJhMTAiLCJpc3MiOiJjcmFmdGVkYWktbm9kZSIsImF1ZCI6ImNyYWZ0ZWRhaS1kZWxlZ2F0aW9uIiwic3ViIjoibWVtYmVyLTQ4MjEiLCJpYXQiOjE3OTAwMDAwMDAsImV4cCI6MTc5MDAwMDMwMCwianRpIjoiZDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDA3In0.-biJvuSSNmgY3v9-OR4jrzPpXZi5Jd-wc99QBOr-wYU"
+        },
+        "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"cancel_subscription\",\"arguments\":{\"subscriptionId\":\"sub_123\"}}}"
+      },
+      "expected": {
+        "ok": false,
+        "reason": "delegation_invalid"
+      }
+    },
+    {
+      "name": "expired_exp_reached",
+      "description": "now == exp: expiry is exclusive.",
+      "now": 1790000060,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "content-type": "application/json",
+          "x-craftedai-request": "eyJhbGciOiJFZERTQSIsInR5cCI6ImNyYWZ0ZWRhaS1yZXErand0Iiwia2lkIjoiX2lVTmlEM21zV1poMkVmY2RJT0xxLTc5SC1XdC16VzNMT2JkUTk0WUtEQSJ9.eyJpc3MiOiJodHRwczovL2FwaS5jcmFmdGVkYWkudGVzdCIsImF1ZCI6Imh0dHBzOi8vbWNwLmN1c3RvbWVyLnRlc3QvbWNwIiwic3ViIjoiMGI2ZjBjMWUtNWQ2YS00ZDM5LTlhNTEtOGYwZTVjM2IyYTEwIiwiaWlkIjoiN2MxZDJlM2YtNGE1Yi00YzZkLThlN2YtOTBhMWIyYzNkNGU1IiwiaWF0IjoxNzkwMDAwMDAwLCJleHAiOjE3OTAwMDAwNjAsImp0aSI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMSIsImJoIjoiRjdEa19vaVkwUGUyYU4wVU45TUhnbWJvMFhDOFNRNjdzQkxpdTd6WHVSTSJ9.6x52arMsFvNppcvmW-xK9BjBCKMwlwiSn4s3BTsYIh-eJZtLo4xZ_opfsjBEg5YnORAh_KbZicj6xXGXCHg5Dg"
+        },
+        "body": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\",\"params\":{}}"
+      },
+      "expected": {
+        "ok": false,
+        "reason": "expired"
+      }
+    },
+    {
+      "name": "expired_iat_61s_ahead",
+      "description": "Verifier clock 61 s behind core-api: iat is beyond the 60 s skew allowance.",
+      "now": 1789999939,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "content-type": "application/json",
+          "x-craftedai-request": "eyJhbGciOiJFZERTQSIsInR5cCI6ImNyYWZ0ZWRhaS1yZXErand0Iiwia2lkIjoiX2lVTmlEM21zV1poMkVmY2RJT0xxLTc5SC1XdC16VzNMT2JkUTk0WUtEQSJ9.eyJpc3MiOiJodHRwczovL2FwaS5jcmFmdGVkYWkudGVzdCIsImF1ZCI6Imh0dHBzOi8vbWNwLmN1c3RvbWVyLnRlc3QvbWNwIiwic3ViIjoiMGI2ZjBjMWUtNWQ2YS00ZDM5LTlhNTEtOGYwZTVjM2IyYTEwIiwiaWlkIjoiN2MxZDJlM2YtNGE1Yi00YzZkLThlN2YtOTBhMWIyYzNkNGU1IiwiaWF0IjoxNzkwMDAwMDAwLCJleHAiOjE3OTAwMDAwNjAsImp0aSI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMSIsImJoIjoiRjdEa19vaVkwUGUyYU4wVU45TUhnbWJvMFhDOFNRNjdzQkxpdTd6WHVSTSJ9.6x52arMsFvNppcvmW-xK9BjBCKMwlwiSn4s3BTsYIh-eJZtLo4xZ_opfsjBEg5YnORAh_KbZicj6xXGXCHg5Dg"
+        },
+        "body": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\",\"params\":{}}"
+      },
+      "expected": {
+        "ok": false,
+        "reason": "expired"
+      }
+    },
+    {
+      "name": "replayed",
+      "description": "The same jti was already accepted.",
+      "now": 1790000000,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "content-type": "application/json",
+          "x-craftedai-request": "eyJhbGciOiJFZERTQSIsInR5cCI6ImNyYWZ0ZWRhaS1yZXErand0Iiwia2lkIjoiX2lVTmlEM21zV1poMkVmY2RJT0xxLTc5SC1XdC16VzNMT2JkUTk0WUtEQSJ9.eyJpc3MiOiJodHRwczovL2FwaS5jcmFmdGVkYWkudGVzdCIsImF1ZCI6Imh0dHBzOi8vbWNwLmN1c3RvbWVyLnRlc3QvbWNwIiwic3ViIjoiMGI2ZjBjMWUtNWQ2YS00ZDM5LTlhNTEtOGYwZTVjM2IyYTEwIiwiaWlkIjoiN2MxZDJlM2YtNGE1Yi00YzZkLThlN2YtOTBhMWIyYzNkNGU1IiwiaWF0IjoxNzkwMDAwMDAwLCJleHAiOjE3OTAwMDAwNjAsImp0aSI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMSIsImJoIjoiRjdEa19vaVkwUGUyYU4wVU45TUhnbWJvMFhDOFNRNjdzQkxpdTd6WHVSTSJ9.6x52arMsFvNppcvmW-xK9BjBCKMwlwiSn4s3BTsYIh-eJZtLo4xZ_opfsjBEg5YnORAh_KbZicj6xXGXCHg5Dg"
+        },
+        "body": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\",\"params\":{}}"
+      },
+      "state": {
+        "seenRequestJtis": [
+          "00000000-0000-4000-8000-000000000001"
+        ]
+      },
+      "expected": {
+        "ok": false,
+        "reason": "replayed"
+      }
+    },
+    {
+      "name": "body_mismatch_reserialized",
+      "description": "Same JSON value, different bytes: a body parser re-serialized it before the guard.",
+      "now": 1790000000,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "content-type": "application/json",
+          "x-craftedai-request": "eyJhbGciOiJFZERTQSIsInR5cCI6ImNyYWZ0ZWRhaS1yZXErand0Iiwia2lkIjoiX2lVTmlEM21zV1poMkVmY2RJT0xxLTc5SC1XdC16VzNMT2JkUTk0WUtEQSJ9.eyJpc3MiOiJodHRwczovL2FwaS5jcmFmdGVkYWkudGVzdCIsImF1ZCI6Imh0dHBzOi8vbWNwLmN1c3RvbWVyLnRlc3QvbWNwIiwic3ViIjoiMGI2ZjBjMWUtNWQ2YS00ZDM5LTlhNTEtOGYwZTVjM2IyYTEwIiwiaWlkIjoiN2MxZDJlM2YtNGE1Yi00YzZkLThlN2YtOTBhMWIyYzNkNGU1IiwiaWF0IjoxNzkwMDAwMDAwLCJleHAiOjE3OTAwMDAwNjAsImp0aSI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMiIsImJoIjoiUm5fbUNwTExBVk4xQlFKNWJkOWJFSUFjYUotWnVfOGNNSFE3Qk9IXzNxcyIsImFjdCI6eyJleHRlcm5hbFVzZXJJZCI6Im1lbWJlci00ODIxIiwiY2hhbm5lbCI6ImFwaSIsImNvbnZlcnNhdGlvbklkIjoiM2EyYjFjMGQtOWU4Zi00YTdiLThjNmQtNWU0ZjNhMmIxYzBkIn19.C5jJG842AT-nutHURVTJaObHTRWs1OfGJD7Q7G-J4PXhwHLt6NvmIA4AyCdaNh67kt2SqTy75IDCxSWPp-mmDA",
+          "x-craftedai-actor-delegation": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJvcmciOiIwYjZmMGMxZS01ZDZhLTRkMzktOWE1MS04ZjBlNWMzYjJhMTAiLCJpc3MiOiJjcmFmdGVkYWktbm9kZSIsImF1ZCI6ImNyYWZ0ZWRhaS1kZWxlZ2F0aW9uIiwic3ViIjoibWVtYmVyLTQ4MjEiLCJpYXQiOjE3OTAwMDAwMDAsImV4cCI6MTc5MDAwMDMwMCwianRpIjoiZDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDAxIn0.amL-dHGK5mldkvoC_aNh7qRA8O83bBt-S_PQXdLqZHQ"
+        },
+        "body": "{\"jsonrpc\": \"2.0\", \"id\": 2, \"method\": \"tools/call\", \"params\": {\"name\": \"cancel_subscription\", \"arguments\": {\"subscriptionId\": \"sub_123\"}}}"
+      },
+      "expected": {
+        "ok": false,
+        "reason": "body_mismatch"
+      }
+    },
+    {
+      "name": "delegation_missing",
+      "description": "act present, requireDelegation true, no delegation header.",
+      "now": 1790000000,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "content-type": "application/json",
+          "x-craftedai-request": "eyJhbGciOiJFZERTQSIsInR5cCI6ImNyYWZ0ZWRhaS1yZXErand0Iiwia2lkIjoiX2lVTmlEM21zV1poMkVmY2RJT0xxLTc5SC1XdC16VzNMT2JkUTk0WUtEQSJ9.eyJpc3MiOiJodHRwczovL2FwaS5jcmFmdGVkYWkudGVzdCIsImF1ZCI6Imh0dHBzOi8vbWNwLmN1c3RvbWVyLnRlc3QvbWNwIiwic3ViIjoiMGI2ZjBjMWUtNWQ2YS00ZDM5LTlhNTEtOGYwZTVjM2IyYTEwIiwiaWlkIjoiN2MxZDJlM2YtNGE1Yi00YzZkLThlN2YtOTBhMWIyYzNkNGU1IiwiaWF0IjoxNzkwMDAwMDAwLCJleHAiOjE3OTAwMDAwNjAsImp0aSI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMiIsImJoIjoiUm5fbUNwTExBVk4xQlFKNWJkOWJFSUFjYUotWnVfOGNNSFE3Qk9IXzNxcyIsImFjdCI6eyJleHRlcm5hbFVzZXJJZCI6Im1lbWJlci00ODIxIiwiY2hhbm5lbCI6ImFwaSIsImNvbnZlcnNhdGlvbklkIjoiM2EyYjFjMGQtOWU4Zi00YTdiLThjNmQtNWU0ZjNhMmIxYzBkIn19.C5jJG842AT-nutHURVTJaObHTRWs1OfGJD7Q7G-J4PXhwHLt6NvmIA4AyCdaNh67kt2SqTy75IDCxSWPp-mmDA"
+        },
+        "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"cancel_subscription\",\"arguments\":{\"subscriptionId\":\"sub_123\"}}}"
+      },
+      "expected": {
+        "ok": false,
+        "reason": "delegation_missing"
+      }
+    },
+    {
+      "name": "delegation_invalid_forged_secret",
+      "description": "Delegation HS256-signed with a different secret.",
+      "now": 1790000000,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "content-type": "application/json",
+          "x-craftedai-request": "eyJhbGciOiJFZERTQSIsInR5cCI6ImNyYWZ0ZWRhaS1yZXErand0Iiwia2lkIjoiX2lVTmlEM21zV1poMkVmY2RJT0xxLTc5SC1XdC16VzNMT2JkUTk0WUtEQSJ9.eyJpc3MiOiJodHRwczovL2FwaS5jcmFmdGVkYWkudGVzdCIsImF1ZCI6Imh0dHBzOi8vbWNwLmN1c3RvbWVyLnRlc3QvbWNwIiwic3ViIjoiMGI2ZjBjMWUtNWQ2YS00ZDM5LTlhNTEtOGYwZTVjM2IyYTEwIiwiaWlkIjoiN2MxZDJlM2YtNGE1Yi00YzZkLThlN2YtOTBhMWIyYzNkNGU1IiwiaWF0IjoxNzkwMDAwMDAwLCJleHAiOjE3OTAwMDAwNjAsImp0aSI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMiIsImJoIjoiUm5fbUNwTExBVk4xQlFKNWJkOWJFSUFjYUotWnVfOGNNSFE3Qk9IXzNxcyIsImFjdCI6eyJleHRlcm5hbFVzZXJJZCI6Im1lbWJlci00ODIxIiwiY2hhbm5lbCI6ImFwaSIsImNvbnZlcnNhdGlvbklkIjoiM2EyYjFjMGQtOWU4Zi00YTdiLThjNmQtNWU0ZjNhMmIxYzBkIn19.C5jJG842AT-nutHURVTJaObHTRWs1OfGJD7Q7G-J4PXhwHLt6NvmIA4AyCdaNh67kt2SqTy75IDCxSWPp-mmDA",
+          "x-craftedai-actor-delegation": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJvcmciOiIwYjZmMGMxZS01ZDZhLTRkMzktOWE1MS04ZjBlNWMzYjJhMTAiLCJpc3MiOiJjcmFmdGVkYWktbm9kZSIsImF1ZCI6ImNyYWZ0ZWRhaS1kZWxlZ2F0aW9uIiwic3ViIjoibWVtYmVyLTQ4MjEiLCJpYXQiOjE3OTAwMDAwMDAsImV4cCI6MTc5MDAwMDMwMCwianRpIjoiZDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDAyIn0.Sl0gqKfaZWQAkeElCwf0YBEMVEJQQtjuDfailn-09Vc"
+        },
+        "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"cancel_subscription\",\"arguments\":{\"subscriptionId\":\"sub_123\"}}}"
+      },
+      "expected": {
+        "ok": false,
+        "reason": "delegation_invalid"
+      }
+    },
+    {
+      "name": "delegation_invalid_expired",
+      "description": "Delegation exp is in the past.",
+      "now": 1790000000,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "content-type": "application/json",
+          "x-craftedai-request": "eyJhbGciOiJFZERTQSIsInR5cCI6ImNyYWZ0ZWRhaS1yZXErand0Iiwia2lkIjoiX2lVTmlEM21zV1poMkVmY2RJT0xxLTc5SC1XdC16VzNMT2JkUTk0WUtEQSJ9.eyJpc3MiOiJodHRwczovL2FwaS5jcmFmdGVkYWkudGVzdCIsImF1ZCI6Imh0dHBzOi8vbWNwLmN1c3RvbWVyLnRlc3QvbWNwIiwic3ViIjoiMGI2ZjBjMWUtNWQ2YS00ZDM5LTlhNTEtOGYwZTVjM2IyYTEwIiwiaWlkIjoiN2MxZDJlM2YtNGE1Yi00YzZkLThlN2YtOTBhMWIyYzNkNGU1IiwiaWF0IjoxNzkwMDAwMDAwLCJleHAiOjE3OTAwMDAwNjAsImp0aSI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMiIsImJoIjoiUm5fbUNwTExBVk4xQlFKNWJkOWJFSUFjYUotWnVfOGNNSFE3Qk9IXzNxcyIsImFjdCI6eyJleHRlcm5hbFVzZXJJZCI6Im1lbWJlci00ODIxIiwiY2hhbm5lbCI6ImFwaSIsImNvbnZlcnNhdGlvbklkIjoiM2EyYjFjMGQtOWU4Zi00YTdiLThjNmQtNWU0ZjNhMmIxYzBkIn19.C5jJG842AT-nutHURVTJaObHTRWs1OfGJD7Q7G-J4PXhwHLt6NvmIA4AyCdaNh67kt2SqTy75IDCxSWPp-mmDA",
+          "x-craftedai-actor-delegation": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJvcmciOiIwYjZmMGMxZS01ZDZhLTRkMzktOWE1MS04ZjBlNWMzYjJhMTAiLCJpc3MiOiJjcmFmdGVkYWktbm9kZSIsImF1ZCI6ImNyYWZ0ZWRhaS1kZWxlZ2F0aW9uIiwic3ViIjoibWVtYmVyLTQ4MjEiLCJpYXQiOjE3ODk5OTk2MDAsImV4cCI6MTc4OTk5OTkwMCwianRpIjoiZDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDAzIn0.Fn6dsfBYAQs9-515w-q4QsmFu52piyJZgJITbe_Jbps"
+        },
+        "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"cancel_subscription\",\"arguments\":{\"subscriptionId\":\"sub_123\"}}}"
+      },
+      "expected": {
+        "ok": false,
+        "reason": "delegation_invalid"
+      }
+    },
+    {
+      "name": "delegation_invalid_wrong_org",
+      "description": "Delegation minted for another organization's id.",
+      "now": 1790000000,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "content-type": "application/json",
+          "x-craftedai-request": "eyJhbGciOiJFZERTQSIsInR5cCI6ImNyYWZ0ZWRhaS1yZXErand0Iiwia2lkIjoiX2lVTmlEM21zV1poMkVmY2RJT0xxLTc5SC1XdC16VzNMT2JkUTk0WUtEQSJ9.eyJpc3MiOiJodHRwczovL2FwaS5jcmFmdGVkYWkudGVzdCIsImF1ZCI6Imh0dHBzOi8vbWNwLmN1c3RvbWVyLnRlc3QvbWNwIiwic3ViIjoiMGI2ZjBjMWUtNWQ2YS00ZDM5LTlhNTEtOGYwZTVjM2IyYTEwIiwiaWlkIjoiN2MxZDJlM2YtNGE1Yi00YzZkLThlN2YtOTBhMWIyYzNkNGU1IiwiaWF0IjoxNzkwMDAwMDAwLCJleHAiOjE3OTAwMDAwNjAsImp0aSI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMiIsImJoIjoiUm5fbUNwTExBVk4xQlFKNWJkOWJFSUFjYUotWnVfOGNNSFE3Qk9IXzNxcyIsImFjdCI6eyJleHRlcm5hbFVzZXJJZCI6Im1lbWJlci00ODIxIiwiY2hhbm5lbCI6ImFwaSIsImNvbnZlcnNhdGlvbklkIjoiM2EyYjFjMGQtOWU4Zi00YTdiLThjNmQtNWU0ZjNhMmIxYzBkIn19.C5jJG842AT-nutHURVTJaObHTRWs1OfGJD7Q7G-J4PXhwHLt6NvmIA4AyCdaNh67kt2SqTy75IDCxSWPp-mmDA",
+          "x-craftedai-actor-delegation": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJvcmciOiI5ZThkN2M2Yi01YTQ5LTQzODItOTE3MC02ZjVlNGQzYzJiMWEiLCJpc3MiOiJjcmFmdGVkYWktbm9kZSIsImF1ZCI6ImNyYWZ0ZWRhaS1kZWxlZ2F0aW9uIiwic3ViIjoibWVtYmVyLTQ4MjEiLCJpYXQiOjE3OTAwMDAwMDAsImV4cCI6MTc5MDAwMDMwMCwianRpIjoiZDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDA0In0.7DwKQMA_a_wdTez5VorgY8qAmlSy7EbGZmDS40s5aeM"
+        },
+        "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"cancel_subscription\",\"arguments\":{\"subscriptionId\":\"sub_123\"}}}"
+      },
+      "expected": {
+        "ok": false,
+        "reason": "delegation_invalid"
+      }
+    },
+    {
+      "name": "delegation_user_mismatch",
+      "description": "Valid delegation for a different end user than act.externalUserId.",
+      "now": 1790000000,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "content-type": "application/json",
+          "x-craftedai-request": "eyJhbGciOiJFZERTQSIsInR5cCI6ImNyYWZ0ZWRhaS1yZXErand0Iiwia2lkIjoiX2lVTmlEM21zV1poMkVmY2RJT0xxLTc5SC1XdC16VzNMT2JkUTk0WUtEQSJ9.eyJpc3MiOiJodHRwczovL2FwaS5jcmFmdGVkYWkudGVzdCIsImF1ZCI6Imh0dHBzOi8vbWNwLmN1c3RvbWVyLnRlc3QvbWNwIiwic3ViIjoiMGI2ZjBjMWUtNWQ2YS00ZDM5LTlhNTEtOGYwZTVjM2IyYTEwIiwiaWlkIjoiN2MxZDJlM2YtNGE1Yi00YzZkLThlN2YtOTBhMWIyYzNkNGU1IiwiaWF0IjoxNzkwMDAwMDAwLCJleHAiOjE3OTAwMDAwNjAsImp0aSI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMiIsImJoIjoiUm5fbUNwTExBVk4xQlFKNWJkOWJFSUFjYUotWnVfOGNNSFE3Qk9IXzNxcyIsImFjdCI6eyJleHRlcm5hbFVzZXJJZCI6Im1lbWJlci00ODIxIiwiY2hhbm5lbCI6ImFwaSIsImNvbnZlcnNhdGlvbklkIjoiM2EyYjFjMGQtOWU4Zi00YTdiLThjNmQtNWU0ZjNhMmIxYzBkIn19.C5jJG842AT-nutHURVTJaObHTRWs1OfGJD7Q7G-J4PXhwHLt6NvmIA4AyCdaNh67kt2SqTy75IDCxSWPp-mmDA",
+          "x-craftedai-actor-delegation": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJvcmciOiIwYjZmMGMxZS01ZDZhLTRkMzktOWE1MS04ZjBlNWMzYjJhMTAiLCJpc3MiOiJjcmFmdGVkYWktbm9kZSIsImF1ZCI6ImNyYWZ0ZWRhaS1kZWxlZ2F0aW9uIiwic3ViIjoibWVtYmVyLTk5OTkiLCJpYXQiOjE3OTAwMDAwMDAsImV4cCI6MTc5MDAwMDMwMCwianRpIjoiZDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDA1In0.oOl1ief10EMxgz1__xV9xnMYPPEW-uGPQYE4oRIU4PM"
+        },
+        "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"cancel_subscription\",\"arguments\":{\"subscriptionId\":\"sub_123\"}}}"
+      },
+      "expected": {
+        "ok": false,
+        "reason": "delegation_user_mismatch"
+      }
+    },
+    {
+      "name": "delegation_exhausted",
+      "description": "Delegation already used 20 times (limit 20).",
+      "now": 1790000000,
+      "request": {
+        "method": "POST",
+        "headers": {
+          "content-type": "application/json",
+          "x-craftedai-request": "eyJhbGciOiJFZERTQSIsInR5cCI6ImNyYWZ0ZWRhaS1yZXErand0Iiwia2lkIjoiX2lVTmlEM21zV1poMkVmY2RJT0xxLTc5SC1XdC16VzNMT2JkUTk0WUtEQSJ9.eyJpc3MiOiJodHRwczovL2FwaS5jcmFmdGVkYWkudGVzdCIsImF1ZCI6Imh0dHBzOi8vbWNwLmN1c3RvbWVyLnRlc3QvbWNwIiwic3ViIjoiMGI2ZjBjMWUtNWQ2YS00ZDM5LTlhNTEtOGYwZTVjM2IyYTEwIiwiaWlkIjoiN2MxZDJlM2YtNGE1Yi00YzZkLThlN2YtOTBhMWIyYzNkNGU1IiwiaWF0IjoxNzkwMDAwMDAwLCJleHAiOjE3OTAwMDAwNjAsImp0aSI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMiIsImJoIjoiUm5fbUNwTExBVk4xQlFKNWJkOWJFSUFjYUotWnVfOGNNSFE3Qk9IXzNxcyIsImFjdCI6eyJleHRlcm5hbFVzZXJJZCI6Im1lbWJlci00ODIxIiwiY2hhbm5lbCI6ImFwaSIsImNvbnZlcnNhdGlvbklkIjoiM2EyYjFjMGQtOWU4Zi00YTdiLThjNmQtNWU0ZjNhMmIxYzBkIn19.C5jJG842AT-nutHURVTJaObHTRWs1OfGJD7Q7G-J4PXhwHLt6NvmIA4AyCdaNh67kt2SqTy75IDCxSWPp-mmDA",
+          "x-craftedai-actor-delegation": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJvcmciOiIwYjZmMGMxZS01ZDZhLTRkMzktOWE1MS04ZjBlNWMzYjJhMTAiLCJpc3MiOiJjcmFmdGVkYWktbm9kZSIsImF1ZCI6ImNyYWZ0ZWRhaS1kZWxlZ2F0aW9uIiwic3ViIjoibWVtYmVyLTQ4MjEiLCJpYXQiOjE3OTAwMDAwMDAsImV4cCI6MTc5MDAwMDMwMCwianRpIjoiZDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDAxIn0.amL-dHGK5mldkvoC_aNh7qRA8O83bBt-S_PQXdLqZHQ"
+        },
+        "body": "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"cancel_subscription\",\"arguments\":{\"subscriptionId\":\"sub_123\"}}}"
+      },
+      "state": {
+        "delegationUses": {
+          "d0000000-0000-4000-8000-000000000001": 20
+        }
+      },
+      "expected": {
+        "ok": false,
+        "reason": "delegation_exhausted"
+      }
+    }
+  ]
+}
