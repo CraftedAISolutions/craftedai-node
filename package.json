@@ -1,0 +1,73 @@
+{
+  "name": "@craftedai/node",
+  "version": "0.1.0",
+  "description": "Server library for the CraftedAI embedded assistant: session minting, signed MCP request verification, CSP.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "sideEffects": false,
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "vitest run --config vitest.e2e.config.ts",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "jose": "^6.2.2"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "0.18.5",
+    "@eslint/js": "10.0.1",
+    "@types/express": "5.0.6",
+    "@types/node": "20.19.43",
+    "eslint": "10.2.1",
+    "eslint-config-prettier": "10.1.8",
+    "express": "5.2.1",
+    "fastify": "5.12.5",
+    "ioredis": "5.10.1",
+    "prettier": "3.8.3",
+    "publint": "0.3.25",
+    "tsup": "8.5.1",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.59.0",
+    "vitest": "4.1.5",
+    "zod": "4.3.6"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CraftedAISolutions/craftedai-node.git"
+  }
+}

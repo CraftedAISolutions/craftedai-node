@@ -1,0 +1,53 @@
+name: craftedai-node CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    name: format / lint / typecheck / test / build (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: ['20.19.0', '22.x', '24.x']
+    env:
+      REDIS_URL: redis://localhost:6379
+      INTEGRATION_REDIS: '1'
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm run format:check
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test
+      - run: npm run build
+      - name: Package exports resolve for ESM and CJS consumers
+        run: |
+          npx publint --strict
+          npx attw --pack .
+          node -e "require('./dist/index.cjs')"
+          node --input-type=module -e "await import('./dist/index.js')"

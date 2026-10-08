@@ -1,0 +1,7 @@
+dist
+coverage
+node_modules
+test/vectors
+test/contract/core-api
+package-lock.json
+examples/*/node_modules
