@@ -240,6 +240,18 @@ export interface SessionRouteResult {
   body: unknown;
 }
 
+const AGENT_ID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** A browser `Origin` that survives a round trip through `URL`: rejects `null`, '', paths, junk. */
+function isBareOrigin(origin: string | undefined): origin is string {
+  if (origin === undefined) return false;
+  try {
+    return new URL(origin).origin === origin;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * The widget's `POST data-session-endpoint` (chat-ui session-bridge): body
  * `{ agentId }`, same-origin, JSON. 401/403/404 make the widget show
@@ -262,13 +274,15 @@ export async function handleSessionRoute(
     typeof input.body === 'object' && input.body !== null
       ? (input.body as { agentId?: unknown }).agentId
       : undefined;
-  if (typeof agentId !== 'string' || agentId.length === 0 || agentId.length > 64) {
+  // Local validation, before any mint: client garbage is the client's 400, never a 502 that
+  // reaches onError. Shape only (8-4-4-4-12 hex): core-api stays the authority on the agent.
+  if (typeof agentId !== 'string' || !AGENT_ID_SHAPE.test(agentId)) {
     return { status: 400, body: { error: 'invalid_request' } };
   }
   if (options.agentIds !== undefined && !options.agentIds.includes(agentId)) {
     return { status: 403, body: { error: 'agent_not_allowed' } };
   }
-  if (input.origin === undefined || input.origin === 'null') {
+  if (!isBareOrigin(input.origin)) {
     return { status: 400, body: { error: 'origin_required' } };
   }
   try {

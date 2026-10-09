@@ -1,5 +1,5 @@
 import { decodeJwt } from 'jose';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   AGENT_ID,
   APP_SECRET,
@@ -248,5 +248,116 @@ describe('createSession validates before it mints or calls core-api (review corr
     const body = JSON.parse(String(stub.calls[0]?.init.body)) as { delegation: { token: string } };
     const claims = decodeJwt(body.delegation.token);
     expect((claims.exp ?? 0) - (claims.iat ?? 0)).toBe(300);
+  });
+});
+
+describe('handleSessionRoute: request gating and onError (fix round 1)', () => {
+  const OK: SessionRouteInput = {
+    user: 'member-1',
+    contentType: 'application/json',
+    origin: 'https://shop.example',
+    body: { agentId: AGENT_ID },
+  };
+  const BOOT = { token: 't' } as unknown as EmbedSessionBoot;
+
+  function run(
+    input: Partial<SessionRouteInput>,
+    mint?: (i: CreateSessionInput) => Promise<EmbedSessionBoot>,
+  ) {
+    const minted = vi.fn(mint ?? (() => Promise.resolve(BOOT)));
+    const onError = vi.fn();
+    const result = handleSessionRoute(
+      { ...OK, ...input },
+      { agentIds: undefined, ttlSeconds: undefined },
+      minted,
+      onError,
+    );
+    return { result, minted, onError };
+  }
+
+  it('hands the thrown error to onError on the 502 path', async () => {
+    const failure = new CraftedAIError('api_unavailable', 'core-api down');
+    const { result, onError } = run({}, () => Promise.reject(failure));
+    expect((await result).status).toBe(502);
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(onError).toHaveBeenCalledWith(failure);
+  });
+
+  it('hands a non-CraftedAIError to onError too, and still answers 502', async () => {
+    const failure = new TypeError('boom');
+    const { result, onError } = run({}, () => Promise.reject(failure));
+    expect((await result).status).toBe(502);
+    expect(onError).toHaveBeenCalledWith(failure);
+  });
+
+  it('does not call onError when the request was fine', async () => {
+    const { result, onError } = run({});
+    expect((await result).status).toBe(200);
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['text/plain', 415],
+    ['multipart/form-data; boundary=x', 415],
+    [undefined, 415],
+    ['', 415],
+    ['application/json', 200],
+    ['application/json; charset=utf-8', 200],
+    ['Application/JSON;charset=UTF-8', 200],
+  ] as [string | undefined, number][])('content-type %j gives %i', async (contentType, status) => {
+    const { result } = run({ contentType });
+    expect((await result).status).toBe(status);
+  });
+
+  it.each([
+    'null',
+    '',
+    'not an origin',
+    'https://shop.example/',
+    'https://shop.example/path',
+    'file:///x',
+  ])('Origin %j gives 400 and never mints', async (origin) => {
+    const { result, minted, onError } = run({ origin });
+    expect((await result).status).toBe(400);
+    expect(minted).not.toHaveBeenCalled();
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it.each(['http://localhost:3000', 'https://shop.example:8443'])(
+    'accepts Origin %s',
+    async (origin) => {
+      const { result, minted } = run({ origin });
+      expect((await result).status).toBe(200);
+      expect(minted).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it.each([
+    ['not-a-uuid'],
+    [''],
+    ['44444444-4444-4444-8444-44444444444'],
+    ['44444444-4444-4444-8444-4444444444444'],
+    ['../../etc/passwd'],
+    [42],
+    [null],
+  ])('agentId %j gives 400 and never mints', async (agentId) => {
+    const { result, minted, onError } = run({ body: { agentId } });
+    expect((await result).status).toBe(400);
+    expect(minted).not.toHaveBeenCalled();
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it('keeps the agentIds allow-list as a 403, after the shape check', async () => {
+    const minted = vi.fn(() => Promise.resolve(BOOT));
+    const route = (agentId: string) =>
+      handleSessionRoute(
+        { ...OK, body: { agentId } },
+        { agentIds: ['55555555-5555-4555-8555-555555555555'], ttlSeconds: undefined },
+        minted,
+        () => undefined,
+      );
+    expect((await route(AGENT_ID)).status).toBe(403);
+    expect((await route('nope')).status).toBe(400);
+    expect(minted).not.toHaveBeenCalled();
   });
 });

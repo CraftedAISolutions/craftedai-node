@@ -65,6 +65,9 @@ export interface ResolvedConfig {
   delegationCallLimit: number;
 }
 
+/** Config members that are credentials; never enumerable, never printed. */
+const SECRET_CONFIG_FIELDS = ['secretKey', 'appSecret', 'previousAppSecret'] as const;
+
 const blankToUndefined = (value: string | undefined): string | undefined =>
   value === undefined || value.trim() === '' ? undefined : value.trim();
 
@@ -145,7 +148,7 @@ export function resolveConfig(options: CraftedAIOptions): ResolvedConfig {
       `${ENV.appSecret} is required while requireDelegation is on (run npx craftedai init, or pass requireDelegation: false)`,
     );
   }
-  return {
+  const config: ResolvedConfig = {
     secretKey: blankToUndefined(options.secretKey ?? env[ENV.secretKey]),
     appSecret,
     previousAppSecret,
@@ -162,6 +165,26 @@ export function resolveConfig(options: CraftedAIOptions): ResolvedConfig {
     requireDelegation,
     delegationCallLimit: limit,
   };
+  // Readable (`config.appSecret`) but invisible to JSON.stringify, spread, Object.keys and
+  // util.inspect, so logging or serialising the client or its config cannot leak a secret.
+  for (const field of SECRET_CONFIG_FIELDS) {
+    Object.defineProperty(config, field, {
+      value: config[field],
+      enumerable: false,
+      writable: false,
+      configurable: false,
+    });
+  }
+  return config;
+}
+
+/** What `toJSON` / `util.inspect` show: the config with every secret replaced. */
+export function redactConfig(config: ResolvedConfig): Record<string, unknown> {
+  const redacted: Record<string, unknown> = { ...config };
+  for (const field of SECRET_CONFIG_FIELDS) {
+    redacted[field] = config[field] === undefined ? undefined : '[redacted]';
+  }
+  return redacted;
 }
 
 export function requireSecretKey(config: ResolvedConfig): string {

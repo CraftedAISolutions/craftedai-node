@@ -1,5 +1,6 @@
 import {
   requireAppSecret,
+  redactConfig,
   requireOrgId,
   requireSecretKey,
   resolveConfig,
@@ -17,6 +18,9 @@ import {
   type EmbedSessionBoot,
 } from './session.js';
 import { verifyRawRequest, type RawRequest, type VerifyResult } from './verify.js';
+
+/** What `console.log` / `util.inspect` call; `Symbol.for` so no `node:util` import is needed. */
+const INSPECT_CUSTOM = Symbol.for('nodejs.util.inspect.custom');
 
 /**
  * The library's one entry point (spec §4.2, §8).
@@ -123,6 +127,16 @@ export class CraftedAI {
   /** `{ 'script-src': [chatOrigin], 'frame-src': [chatOrigin] }` — merge into your CSP. */
   cspDirectives(): CspDirectives {
     return cspDirectives(this.config.chatOrigin);
+  }
+
+  /** `JSON.stringify(client)` and logging frameworks: the config with every secret redacted. */
+  toJSON(): Record<string, unknown> {
+    return { config: redactConfig(this.config) };
+  }
+
+  /** `console.log(client)` / `util.inspect(client)`: the same redacted view, never a secret. */
+  [INSPECT_CUSTOM](): Record<string, unknown> {
+    return this.toJSON();
   }
 
   /** The same two directives as CSP text: `script-src X; frame-src X;`. */

@@ -9,6 +9,7 @@ import {
   ORG_ID,
   SECRET_KEY,
 } from '../test/helpers/core-api-stub.js';
+import { printed } from '../test/helpers/printed.js';
 import { createOwnSigner } from '../test/helpers/own-signer.js';
 import { NOW as VECTOR_NOW, signRequest } from '../test/helpers/sign.js';
 import { vectors } from '../test/helpers/vectors.js';
@@ -391,4 +392,55 @@ describe('CSP output (review correction 6)', () => {
       'script-src https://chat.craftedai.co; frame-src https://chat.craftedai.co;',
     );
   });
+});
+
+const PREVIOUS_SECRET = 'Q0hBTkdFLU1FLW9sZC1hcHAtc2VjcmV0LTQzLWNoYXJzLXg';
+
+describe('secrets never leak through serialisation or logging (fix round 1)', () => {
+  const build = () =>
+    new CraftedAI({
+      secretKey: SECRET_KEY,
+      appSecret: APP_SECRET,
+      previousAppSecret: PREVIOUS_SECRET,
+      orgId: ORG_ID,
+      env: {},
+    });
+
+  it.each([SECRET_KEY, APP_SECRET, PREVIOUS_SECRET])(
+    'hides %s from every printed form',
+    (secret) => {
+      for (const [how, text] of Object.entries(printed(build()))) {
+        expect(text, how).not.toContain(secret);
+      }
+    },
+  );
+
+  it('still reads the secrets as properties, and shows the non-secret config', () => {
+    const client = build();
+    expect(client.config.secretKey).toBe(SECRET_KEY);
+    expect(client.config.appSecret).toBe(APP_SECRET);
+    expect(client.config.previousAppSecret).toBe(PREVIOUS_SECRET);
+    expect(Object.keys(client.config)).not.toEqual(expect.arrayContaining(['secretKey']));
+    expect(JSON.parse(JSON.stringify(client))).toMatchObject({
+      config: {
+        apiOrigin: 'https://api.craftedai.co',
+        orgId: ORG_ID,
+        secretKey: '[redacted]',
+        appSecret: '[redacted]',
+        previousAppSecret: '[redacted]',
+      },
+    });
+  });
+
+  it.each(['secretKey', 'appSecret', 'previousAppSecret'] as const)(
+    'makes config.%s non-enumerable',
+    (field) => {
+      const config = build().config;
+      expect(Object.keys(config)).not.toContain(field);
+      expect(Object.getOwnPropertyDescriptor(config, field)).toMatchObject({
+        enumerable: false,
+        writable: false,
+      });
+    },
+  );
 });
