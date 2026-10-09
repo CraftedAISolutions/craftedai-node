@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { TEST_VECTOR_KIDS } from './contract.js';
-import { JwksCache } from './jwks-cache.js';
+import { JWKS_MAX_STALENESS_MS, JwksCache } from './jwks-cache.js';
 
 const KEY_A = {
   kty: 'OKP',
@@ -188,6 +188,36 @@ describe('JwksCache fails closed', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
+  it('releases the socket by cancelling the body of a non-2xx response', async () => {
+    const cancel = vi.fn(() => Promise.resolve());
+    const cache = new JwksCache({
+      apiOrigin: 'https://api.craftedai.test',
+      fetch: () =>
+        Promise.resolve({ ok: false, status: 502, body: { cancel } } as unknown as Response),
+      now: () => 0,
+    });
+    expect((await cache.lookup('a')).status).toBe('unavailable');
+    expect(cancel).toHaveBeenCalledTimes(1);
+  });
+
+  it('survives a body whose cancel() throws', async () => {
+    const cache = new JwksCache({
+      apiOrigin: 'https://api.craftedai.test',
+      fetch: () =>
+        Promise.resolve({
+          ok: false,
+          status: 502,
+          body: { cancel: () => Promise.reject(new Error('boom')) },
+        } as unknown as Response),
+      now: () => 0,
+    });
+    // The failure is still reported as the HTTP error, not as "unreachable".
+    expect(await cache.lookup('a')).toMatchObject({
+      status: 'unavailable',
+      message: expect.stringContaining('HTTP 502'),
+    });
+  });
+
   it('times out a hung fetch and clears the in-flight slot', async () => {
     const hang = vi.fn((_url: string | URL | Request, init?: RequestInit) =>
       init?.signal === undefined || init.signal === null
@@ -245,5 +275,114 @@ describe('JwksCache refuses the published test-vector keys', () => {
   it('allowTestVectorKeys: false is the same as the default', async () => {
     const { cache } = setup([vectorKey], { allowTestVectorKeys: false });
     expect((await cache.lookup(TEST_VECTOR_KIDS[0]!)).status).toBe('unknown');
+  });
+});
+
+describe('JwksCache staleness cap and clock jumps', () => {
+  const MIN = 60_000;
+
+  function failingAfterFirstFetch() {
+    const ctx = setup([KEY_A]);
+    return ctx.cache.lookup('a').then(() => {
+      ctx.fetchMock.mockImplementation(() => Promise.reject(new Error('ECONNRESET')));
+      return ctx;
+    });
+  }
+
+  it('is 24 h', () => {
+    expect(JWKS_MAX_STALENESS_MS).toBe(86_400_000);
+  });
+
+  it('still serves the key 23 h 59 min after the last good fetch while the JWKS is down', async () => {
+    const { cache, advance } = await failingAfterFirstFetch();
+    advance(23 * 3600 + 59 * 60);
+    expect((await cache.lookup('a')).status).toBe('found');
+  });
+
+  it('serves the key at exactly 24 h and refuses it 1 ms later', async () => {
+    const ctx = setup([KEY_A]);
+    let nowMs = 1_790_000_000_000;
+    const cache = new JwksCache({
+      apiOrigin: 'https://api.craftedai.test',
+      fetch: ctx.fetchMock,
+      now: () => nowMs,
+    });
+    await cache.lookup('a');
+    ctx.fetchMock.mockImplementation(() => Promise.reject(new Error('ECONNRESET')));
+    nowMs += JWKS_MAX_STALENESS_MS;
+    expect((await cache.lookup('a')).status).toBe('found');
+    nowMs += 1;
+    const result = await cache.lookup('a');
+    expect(result.status).toBe('unavailable');
+    expect(result).toMatchObject({ message: expect.stringContaining('stale') });
+  });
+
+  it('refuses every kid past the cap, not just one', async () => {
+    const { cache, advance } = await failingAfterFirstFetch();
+    advance(24 * 3600 + 1);
+    for (const kid of ['a', 'b', 'forged']) {
+      expect((await cache.lookup(kid)).status).toBe('unavailable');
+    }
+  });
+
+  it('a successful fetch resets the staleness clock', async () => {
+    const { cache, fetchMock, advance } = setup([KEY_A]);
+    await cache.lookup('a');
+    advance(23 * 3600);
+    expect((await cache.lookup('a')).status).toBe('found');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    fetchMock.mockImplementation(() => Promise.reject(new Error('ECONNRESET')));
+    advance(23 * 3600);
+    expect((await cache.lookup('a')).status).toBe('found');
+    advance(2 * 3600);
+    expect((await cache.lookup('a')).status).toBe('unavailable');
+  });
+
+  it('recovers as soon as the JWKS is reachable again after going stale', async () => {
+    const { cache, fetchMock, advance } = await failingAfterFirstFetch();
+    advance(25 * 3600);
+    expect((await cache.lookup('a')).status).toBe('unavailable');
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(new Response(JSON.stringify({ keys: [KEY_A] }))),
+    );
+    advance(30);
+    expect((await cache.lookup('a')).status).toBe('found');
+  });
+
+  it('honours the test-only maxStalenessMs override', async () => {
+    let nowMs = 0;
+    const cache = new JwksCache({
+      apiOrigin: 'https://api.craftedai.test',
+      fetch: () => Promise.resolve(new Response(JSON.stringify({ keys: [KEY_A] }))),
+      now: () => nowMs,
+      maxStalenessMs: 10 * MIN,
+    });
+    await cache.lookup('a');
+    nowMs += 5 * MIN;
+    expect((await cache.lookup('a')).status).toBe('found');
+  });
+
+  it('applies the maxStalenessMs override when it is shorter than 24 h', async () => {
+    let nowMs = 0;
+    const fetchMock = vi.fn(() => Promise.resolve(new Response(JSON.stringify({ keys: [KEY_A] }))));
+    const cache = new JwksCache({
+      apiOrigin: 'https://api.craftedai.test',
+      fetch: fetchMock,
+      now: () => nowMs,
+      maxStalenessMs: 10 * MIN,
+    });
+    await cache.lookup('a');
+    fetchMock.mockImplementation(() => Promise.reject(new Error('ECONNRESET')));
+    nowMs += 11 * MIN;
+    expect((await cache.lookup('a')).status).toBe('unavailable');
+  });
+
+  it('does not stall fetching when the wall clock goes backwards', async () => {
+    const { cache, fetchMock, publish, advance } = setup([KEY_A]);
+    await cache.lookup('a');
+    advance(-3600);
+    publish([KEY_A, KEY_B]);
+    expect((await cache.lookup('b')).status).toBe('found');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });

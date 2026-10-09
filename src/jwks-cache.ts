@@ -6,6 +6,14 @@ import {
   TEST_VECTOR_KIDS,
 } from './contract.js';
 
+/**
+ * Hard ceiling on how long last-good keys are served while the JWKS cannot be
+ * refreshed: 24 h after the last SUCCESSFUL fetch. Past it, `lookup` answers
+ * `unavailable` and never returns a stale key (a revoked key must not stay
+ * trusted through an outage).
+ */
+export const JWKS_MAX_STALENESS_MS = 24 * 60 * 60 * 1000;
+
 export interface JwksCacheOptions {
   /** The API origin (`iss`); the JWKS is `{apiOrigin}/.well-known/jwks.json`. */
   apiOrigin: string;
@@ -20,6 +28,8 @@ export interface JwksCacheOptions {
    * them even if the JWKS lists them. Set this only to run the shared vectors.
    */
   allowTestVectorKeys?: boolean;
+  /** TEST ONLY. Overrides `JWKS_MAX_STALENESS_MS`. */
+  maxStalenessMs?: number;
 }
 
 /**
@@ -73,6 +83,10 @@ export class JwksCache {
       await this.refresh();
       jwk = this.find(kid);
     }
+    const keysAgeMs = this.options.now() - this.fetchedAtMs;
+    if (this.keys !== null && keysAgeMs > (this.options.maxStalenessMs ?? JWKS_MAX_STALENESS_MS)) {
+      return { status: 'unavailable', message: `JWKS keys are stale: ${this.lastFailure}` };
+    }
     if (jwk !== undefined) return { status: 'found', jwk };
     if (this.keys === null) return { status: 'unavailable', message: this.lastFailure };
     return { status: 'unknown', message: 'no key with this key id in the JWKS' };
@@ -83,10 +97,13 @@ export class JwksCache {
    * successful or not; a caller arriving while a fetch is in flight joins it instead.
    */
   private mayRefetch(): boolean {
+    if (this.inflight !== null) return true;
+    const sinceLastAttemptMs = this.options.now() - this.lastAttemptMs;
+    // A negative value means the wall clock went backwards: treat the throttle as
+    // elapsed, otherwise fetching would stall until the clock catches up.
     return (
-      this.inflight !== null ||
-      this.options.now() - this.lastAttemptMs >=
-        JWKS_UNKNOWN_KID_REFETCH_MIN_INTERVAL_SECONDS * 1000
+      sinceLastAttemptMs < 0 ||
+      sinceLastAttemptMs >= JWKS_UNKNOWN_KID_REFETCH_MIN_INTERVAL_SECONDS * 1000
     );
   }
 
@@ -111,6 +128,12 @@ export class JwksCache {
       });
       if (!response.ok) {
         this.lastFailure = `JWKS fetch failed: HTTP ${response.status}`;
+        // Release the socket: an unread body keeps the connection busy in undici.
+        try {
+          await response.body?.cancel();
+        } catch {
+          // Nothing to do: the response is being discarded either way.
+        }
         return;
       }
       const body: unknown = await response.json();
