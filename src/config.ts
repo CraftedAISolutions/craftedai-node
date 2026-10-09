@@ -54,16 +54,19 @@ export interface CraftedAIOptions {
 }
 
 export interface ResolvedConfig {
-  secretKey: string | undefined;
-  appSecret: string | undefined;
-  previousAppSecret: string | undefined;
-  orgId: string | undefined;
-  apiOrigin: string;
-  chatOrigin: string;
-  publicUrl: readonly string[] | undefined;
-  requireDelegation: boolean;
-  delegationCallLimit: number;
+  readonly secretKey: string | undefined;
+  readonly appSecret: string | undefined;
+  readonly previousAppSecret: string | undefined;
+  readonly orgId: string | undefined;
+  readonly apiOrigin: string;
+  readonly chatOrigin: string;
+  readonly publicUrl: readonly string[] | undefined;
+  readonly requireDelegation: boolean;
+  readonly delegationCallLimit: number;
 }
+
+/** What `util.inspect` / `console.log` call; `Symbol.for` so no `node:util` import is needed. */
+export const INSPECT_CUSTOM = Symbol.for('nodejs.util.inspect.custom');
 
 /** Config members that are credentials; never enumerable, never printed. */
 const SECRET_CONFIG_FIELDS = ['secretKey', 'appSecret', 'previousAppSecret'] as const;
@@ -165,8 +168,9 @@ export function resolveConfig(options: CraftedAIOptions): ResolvedConfig {
     requireDelegation,
     delegationCallLimit: limit,
   };
-  // Readable (`config.appSecret`) but invisible to JSON.stringify, spread, Object.keys and
-  // util.inspect, so logging or serialising the client or its config cannot leak a secret.
+  // Readable (`config.appSecret`) but invisible to JSON.stringify, spread and Object.keys.
+  // `showHidden` and `%o` do print non-enumerable members, so the config also carries its own
+  // non-enumerable inspect hook that prints the redacted view instead.
   for (const field of SECRET_CONFIG_FIELDS) {
     Object.defineProperty(config, field, {
       value: config[field],
@@ -175,6 +179,12 @@ export function resolveConfig(options: CraftedAIOptions): ResolvedConfig {
       configurable: false,
     });
   }
+  Object.defineProperty(config, INSPECT_CUSTOM, {
+    value: () => redactConfig(config),
+    enumerable: false,
+    writable: false,
+    configurable: false,
+  });
   return config;
 }
 

@@ -290,6 +290,27 @@ describe('handleSessionRoute: request gating and onError (fix round 1)', () => {
     expect(onError).toHaveBeenCalledWith(failure);
   });
 
+  it.each([
+    ['agent_unavailable', 404],
+    ['agent_not_allowed_for_key', 403],
+    ['embed_origin_not_allowed', 403],
+    ['invalid_argument', 400],
+  ] as const)('does not call onError for the expected outcome %s (%i)', async (code, status) => {
+    const { result, onError } = run({}, () => Promise.reject(new CraftedAIError(code, 'x')));
+    expect((await result).status).toBe(status);
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it.each(['invalid_credentials', 'api_unavailable', 'invalid_request'] as const)(
+    'calls onError for the unexpected failure %s (502)',
+    async (code) => {
+      const failure = new CraftedAIError(code, 'x');
+      const { result, onError } = run({}, () => Promise.reject(failure));
+      expect((await result).status).toBe(502);
+      expect(onError).toHaveBeenCalledExactlyOnceWith(failure);
+    },
+  );
+
   it('does not call onError when the request was fine', async () => {
     const { result, onError } = run({});
     expect((await result).status).toBe(200);

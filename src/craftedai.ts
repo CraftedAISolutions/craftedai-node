@@ -1,4 +1,5 @@
 import {
+  INSPECT_CUSTOM,
   requireAppSecret,
   redactConfig,
   requireOrgId,
@@ -18,9 +19,6 @@ import {
   type EmbedSessionBoot,
 } from './session.js';
 import { verifyRawRequest, type RawRequest, type VerifyResult } from './verify.js';
-
-/** What `console.log` / `util.inspect` call; `Symbol.for` so no `node:util` import is needed. */
-const INSPECT_CUSTOM = Symbol.for('nodejs.util.inspect.custom');
 
 /**
  * The library's one entry point (spec §4.2, §8).

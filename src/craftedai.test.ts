@@ -443,4 +443,13 @@ describe('secrets never leak through serialisation or logging (fix round 1)', ()
       });
     },
   );
+
+  it('types the config fields readonly, and a write to a secret throws at runtime', () => {
+    const config = build().config;
+    expect(() => {
+      // @ts-expect-error ResolvedConfig fields are readonly
+      config.appSecret = 'overwritten';
+    }).toThrow(TypeError);
+    expect(config.appSecret).toBe(APP_SECRET);
+  });
 });
