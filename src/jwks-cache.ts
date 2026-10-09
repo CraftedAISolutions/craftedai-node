@@ -23,12 +23,16 @@ export interface JwksCacheOptions {
   /** Per-fetch timeout. Default 5 s. */
   timeoutMs?: number;
   /**
+   * @internal
    * TEST ONLY. The published test-vector keys (`TEST_VECTOR_KIDS`) have private
    * keys derived from public seeds, so by default the cache refuses to serve
    * them even if the JWKS lists them. Set this only to run the shared vectors.
    */
   allowTestVectorKeys?: boolean;
-  /** TEST ONLY. Overrides `JWKS_MAX_STALENESS_MS`. */
+  /**
+   * @internal
+   * TEST ONLY. Overrides `JWKS_MAX_STALENESS_MS`.
+   */
   maxStalenessMs?: number;
 }
 
@@ -76,7 +80,10 @@ export class JwksCache {
     if (typeof kid !== 'string' || kid.length === 0 || kid.length > MAX_KID_LENGTH) {
       return { status: 'unknown', message: 'malformed key id' };
     }
-    const stale = this.options.now() - this.fetchedAtMs >= JWKS_CACHE_MAX_AGE_SECONDS * 1000;
+    // A negative age means the wall clock went back past the last successful fetch:
+    // the keys' real age is unknown, so they are stale and must be refetched.
+    const ageMs = this.options.now() - this.fetchedAtMs;
+    const stale = ageMs < 0 || ageMs >= JWKS_CACHE_MAX_AGE_SECONDS * 1000;
     if (stale && this.mayRefetch()) await this.refresh();
     let jwk = this.find(kid);
     if (jwk === undefined && this.mayRefetch()) {
@@ -84,7 +91,11 @@ export class JwksCache {
       jwk = this.find(kid);
     }
     const keysAgeMs = this.options.now() - this.fetchedAtMs;
-    if (this.keys !== null && keysAgeMs > (this.options.maxStalenessMs ?? JWKS_MAX_STALENESS_MS)) {
+    // Still negative after the refetch attempt (it failed or was throttled): fail closed.
+    if (
+      this.keys !== null &&
+      (keysAgeMs < 0 || keysAgeMs > (this.options.maxStalenessMs ?? JWKS_MAX_STALENESS_MS))
+    ) {
       return { status: 'unavailable', message: `JWKS keys are stale: ${this.lastFailure}` };
     }
     if (jwk !== undefined) return { status: 'found', jwk };
@@ -128,9 +139,10 @@ export class JwksCache {
       });
       if (!response.ok) {
         this.lastFailure = `JWKS fetch failed: HTTP ${response.status}`;
-        // Release the socket: an unread body keeps the connection busy in undici.
+        // Release the socket (an unread body keeps the connection busy in undici), without
+        // waiting: a custom fetch whose cancel() never settles must not hold the in-flight slot.
         try {
-          await response.body?.cancel();
+          void response.body?.cancel().catch(() => undefined);
         } catch {
           // Nothing to do: the response is being discarded either way.
         }

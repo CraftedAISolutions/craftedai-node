@@ -200,6 +200,38 @@ describe('JwksCache fails closed', () => {
     expect(cancel).toHaveBeenCalledTimes(1);
   });
 
+  it('does not wait for a cancel() that never settles', { timeout: 1000 }, async () => {
+    const cache = new JwksCache({
+      apiOrigin: 'https://api.craftedai.test',
+      fetch: () =>
+        Promise.resolve({
+          ok: false,
+          status: 502,
+          body: { cancel: () => new Promise<void>(() => undefined) },
+        } as unknown as Response),
+      now: () => 0,
+    });
+    expect((await cache.lookup('a')).status).toBe('unavailable');
+  });
+
+  it('survives a body whose cancel() throws synchronously', async () => {
+    const cache = new JwksCache({
+      apiOrigin: 'https://api.craftedai.test',
+      fetch: () =>
+        Promise.resolve({
+          ok: false,
+          status: 502,
+          body: {
+            cancel: () => {
+              throw new Error('boom');
+            },
+          },
+        } as unknown as Response),
+      now: () => 0,
+    });
+    expect(await cache.lookup('a')).toMatchObject({ message: expect.stringContaining('HTTP 502') });
+  });
+
   it('survives a body whose cancel() throws', async () => {
     const cache = new JwksCache({
       apiOrigin: 'https://api.craftedai.test',
@@ -349,19 +381,6 @@ describe('JwksCache staleness cap and clock jumps', () => {
     expect((await cache.lookup('a')).status).toBe('found');
   });
 
-  it('honours the test-only maxStalenessMs override', async () => {
-    let nowMs = 0;
-    const cache = new JwksCache({
-      apiOrigin: 'https://api.craftedai.test',
-      fetch: () => Promise.resolve(new Response(JSON.stringify({ keys: [KEY_A] }))),
-      now: () => nowMs,
-      maxStalenessMs: 10 * MIN,
-    });
-    await cache.lookup('a');
-    nowMs += 5 * MIN;
-    expect((await cache.lookup('a')).status).toBe('found');
-  });
-
   it('applies the maxStalenessMs override when it is shorter than 24 h', async () => {
     let nowMs = 0;
     const fetchMock = vi.fn(() => Promise.resolve(new Response(JSON.stringify({ keys: [KEY_A] }))));
@@ -375,6 +394,35 @@ describe('JwksCache staleness cap and clock jumps', () => {
     fetchMock.mockImplementation(() => Promise.reject(new Error('ECONNRESET')));
     nowMs += 11 * MIN;
     expect((await cache.lookup('a')).status).toBe('unavailable');
+  });
+
+  describe('wall clock jumps back past the last successful fetch', () => {
+    it('refetches even though the key looks fresh (reachable JWKS)', async () => {
+      const { cache, fetchMock, advance } = setup([KEY_A]);
+      await cache.lookup('a');
+      advance(-3600);
+      expect((await cache.lookup('a')).status).toBe('found');
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    it('re-anchors on the refetch: the next lookup is served from cache', async () => {
+      const { cache, fetchMock, advance } = setup([KEY_A]);
+      await cache.lookup('a');
+      advance(-3600);
+      await cache.lookup('a');
+      advance(60);
+      expect((await cache.lookup('a')).status).toBe('found');
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    it('answers unavailable, never the key, when the refetch fails (unreachable JWKS)', async () => {
+      const { cache, fetchMock, advance } = setup([KEY_A]);
+      await cache.lookup('a');
+      fetchMock.mockImplementation(() => Promise.reject(new Error('ECONNRESET')));
+      advance(-3600);
+      expect((await cache.lookup('a')).status).toBe('unavailable');
+      expect((await cache.lookup('a')).status).toBe('unavailable');
+    });
   });
 
   it('does not stall fetching when the wall clock goes backwards', async () => {
