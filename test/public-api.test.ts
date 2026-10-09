@@ -1,6 +1,7 @@
-import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
-import { createRequire } from 'node:module';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
+import { builtinModules, createRequire } from 'node:module';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -77,5 +78,72 @@ describe('public type surface (review correction 5)', () => {
         }
       },
     );
+  });
+  describe('the craftedai bin (npx craftedai init)', () => {
+    const KEY = `cai_${'k'.repeat(43)}`;
+    const run = (args: string[], input = '') => {
+      // A throwaway cwd with an empty environment: no real .env, key or network is involved.
+      const cwd = mkdtempSync(join(tmpdir(), 'craftedai-bin-'));
+      try {
+        return {
+          ...spawnSync(process.execPath, [join(outDir, 'cli.js'), ...args], {
+            cwd,
+            input,
+            env: { PATH: process.env.PATH ?? '' },
+            encoding: 'utf8',
+          }),
+          cwd,
+        };
+      } finally {
+        rmSync(cwd, { recursive: true, force: true });
+      }
+    };
+
+    it('starts with a node shebang and is executable', () => {
+      const file = join(outDir, 'cli.js');
+      expect(readFileSync(file, 'utf8').startsWith('#!/usr/bin/env node\n')).toBe(true);
+      if (process.platform !== 'win32') expect(statSync(file).mode & 0o111).toBe(0o111);
+    });
+
+    it('imports only node built-ins: nothing has to resolve before it can run', () => {
+      const source = readFileSync(join(outDir, 'cli.js'), 'utf8');
+      const imports = [...source.matchAll(/^import (?:[^\n]* from )?"([^"]+)";$/gm)];
+      expect(imports.length).toBeGreaterThan(0);
+      for (const [, specifier] of imports) {
+        expect(builtinModules).toContain(specifier!.replace(/^node:/, ''));
+      }
+    });
+
+    it('prints usage for --help and for init --help, exit 0', () => {
+      for (const args of [['--help'], ['init', '--help'], []]) {
+        const result = run(args);
+        expect(result.status).toBe(0);
+        expect(result.stdout).toContain('Usage: npx craftedai init');
+      }
+    });
+
+    it('exits 1 on an unknown command', () => {
+      expect(run(['nope']).status).toBe(1);
+    });
+
+    it('refuses the key on the command line and does not echo it', () => {
+      const result = run(['init', '--key', KEY]);
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain('craftedai init: the server key is not accepted');
+      expect(result.stdout + result.stderr).not.toContain(KEY);
+    });
+
+    it('exits 1 when there is no key and nothing to read one from', () => {
+      const result = run(['init']);
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain('craftedai init: no answer was given');
+    });
+
+    it('does not echo a key that is piped in, and refuses it as malformed before any request', () => {
+      const result = run(['init'], 'sk-not-a-craftedai-key\n');
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain('not a cai_ server key');
+      expect(result.stdout + result.stderr).not.toContain('sk-not-a');
+    });
   });
 });

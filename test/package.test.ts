@@ -6,6 +6,8 @@ const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url),
   engines: { node: string };
   dependencies: Record<string, string>;
   exports: Record<string, unknown>;
+  bin: Record<string, string>;
+  files: string[];
 };
 
 describe('package (spec §8)', () => {
@@ -29,5 +31,10 @@ describe('package (spec §8)', () => {
       import: { types: './dist/index.d.ts', default: './dist/index.js' },
       require: { types: './dist/index.d.cts', default: './dist/index.cjs' },
     });
+  });
+
+  it('ships the craftedai bin from dist (npx craftedai init)', () => {
+    expect(pkg.bin).toEqual({ craftedai: './dist/cli.js' });
+    expect(pkg.files).toContain('dist');
   });
 });
