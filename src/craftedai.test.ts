@@ -437,10 +437,11 @@ describe('secrets never leak through serialisation or logging (fix round 1)', ()
     (field) => {
       const config = build().config;
       expect(Object.keys(config)).not.toContain(field);
-      expect(Object.getOwnPropertyDescriptor(config, field)).toMatchObject({
-        enumerable: false,
-        writable: false,
-      });
+      const descriptor = Object.getOwnPropertyDescriptor(config, field);
+      // A getter over module-private storage: no value on the object, no setter, not enumerable.
+      expect(descriptor).toMatchObject({ enumerable: false, set: undefined });
+      expect(descriptor?.get).toBeTypeOf('function');
+      expect(descriptor).not.toHaveProperty('value');
     },
   );
 

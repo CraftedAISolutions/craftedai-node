@@ -294,14 +294,15 @@ export async function handleSessionRoute(
     });
     return { status: 200, body: boot };
   } catch (error) {
-    // Expected integration outcomes (unknown/unpublished agent, origin or key not allowed, bad
-    // input) are answered without onError; only an unexpected failure (the 502) is reported.
+    // Expected integration outcomes (unknown/unpublished agent, origin or key not allowed) are
+    // answered without onError. Everything else is reported and answered 502 (Ruling 9),
+    // including `invalid_argument`: the browser's agentId and Origin were validated above, so it
+    // can only come from the integrator's ttlSeconds or the id their getUser returned (a bug).
     const code = error instanceof CraftedAIError ? error.code : undefined;
     if (code === 'agent_unavailable') return { status: 404, body: { error: code } };
     if (code === 'agent_not_allowed_for_key' || code === 'embed_origin_not_allowed') {
       return { status: 403, body: { error: code } };
     }
-    if (code === 'invalid_argument') return { status: 400, body: { error: 'invalid_request' } };
     onError(error);
     return { status: 502, body: { error: 'session_unavailable' } };
   }

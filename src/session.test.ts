@@ -294,22 +294,32 @@ describe('handleSessionRoute: request gating and onError (fix round 1)', () => {
     ['agent_unavailable', 404],
     ['agent_not_allowed_for_key', 403],
     ['embed_origin_not_allowed', 403],
-    ['invalid_argument', 400],
   ] as const)('does not call onError for the expected outcome %s (%i)', async (code, status) => {
     const { result, onError } = run({}, () => Promise.reject(new CraftedAIError(code, 'x')));
     expect((await result).status).toBe(status);
     expect(onError).not.toHaveBeenCalled();
   });
 
-  it.each(['invalid_credentials', 'api_unavailable', 'invalid_request'] as const)(
-    'calls onError for the unexpected failure %s (502)',
-    async (code) => {
-      const failure = new CraftedAIError(code, 'x');
-      const { result, onError } = run({}, () => Promise.reject(failure));
-      expect((await result).status).toBe(502);
-      expect(onError).toHaveBeenCalledExactlyOnceWith(failure);
-    },
-  );
+  it.each([
+    'invalid_credentials',
+    'api_unavailable',
+    'invalid_request',
+    'invalid_argument',
+  ] as const)('calls onError for the unexpected failure %s (502)', async (code) => {
+    const failure = new CraftedAIError(code, 'x');
+    const { result, onError } = run({}, () => Promise.reject(failure));
+    expect((await result).status).toBe(502);
+    expect(onError).toHaveBeenCalledExactlyOnceWith(failure);
+  });
+
+  it('reports an integrator bug (a bad id from getUser) as 502 plus onError, end to end', async () => {
+    const { deps: d } = deps(() => jsonResponse(201, MINT_RESPONSE));
+    const { result, onError } = run({ user: 'has a space' }, (input) => createSession(input, d));
+    expect((await result).status).toBe(502);
+    expect(onError).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ code: 'invalid_argument' }),
+    );
+  });
 
   it('does not call onError when the request was fine', async () => {
     const { result, onError } = run({});

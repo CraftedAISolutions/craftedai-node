@@ -71,6 +71,12 @@ export const INSPECT_CUSTOM = Symbol.for('nodejs.util.inspect.custom');
 /** Config members that are credentials; never enumerable, never printed. */
 const SECRET_CONFIG_FIELDS = ['secretKey', 'appSecret', 'previousAppSecret'] as const;
 
+/** The credential values, kept off the config object itself (see `resolveConfig`). */
+const secretValues = new WeakMap<
+  ResolvedConfig,
+  Record<(typeof SECRET_CONFIG_FIELDS)[number], string | undefined>
+>();
+
 const blankToUndefined = (value: string | undefined): string | undefined =>
   value === undefined || value.trim() === '' ? undefined : value.trim();
 
@@ -168,17 +174,24 @@ export function resolveConfig(options: CraftedAIOptions): ResolvedConfig {
     requireDelegation,
     delegationCallLimit: limit,
   };
-  // Readable (`config.appSecret`) but invisible to JSON.stringify, spread and Object.keys.
-  // `showHidden` and `%o` do print non-enumerable members, so the config also carries its own
-  // non-enumerable inspect hook that prints the redacted view instead.
+  // Readable (`config.appSecret`) but invisible to JSON.stringify, spread and Object.keys. The
+  // values are not stored on the object: a non-enumerable getter reads them from a module-level
+  // WeakMap, so even `util.inspect(config, { showHidden: true, customInspect: false })` (what
+  // `console.dir` does) prints `[Getter]`, never the value. No setter: a write throws in strict mode.
+  secretValues.set(config, {
+    secretKey: config.secretKey,
+    appSecret: config.appSecret,
+    previousAppSecret: config.previousAppSecret,
+  });
   for (const field of SECRET_CONFIG_FIELDS) {
     Object.defineProperty(config, field, {
-      value: config[field],
+      get: () => secretValues.get(config)?.[field],
       enumerable: false,
-      writable: false,
       configurable: false,
     });
   }
+  // `%o` and `showHidden` print non-enumerable members, so the config also carries its own
+  // non-enumerable inspect hook that prints the redacted view instead.
   Object.defineProperty(config, INSPECT_CUSTOM, {
     value: () => redactConfig(config),
     enumerable: false,

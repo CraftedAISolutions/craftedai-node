@@ -14,6 +14,16 @@ export function printed(client: unknown): Record<string, string> {
     "util.format('%o', client.config)": format('%o', config),
     "util.format('%o', client)": format('%o', client),
     'util.inspect(client.config, showHidden)': inspect(config, { depth: 10, showHidden: true }),
+    'util.inspect(client.config, showHidden, customInspect false) (console.dir)': inspect(config, {
+      depth: 10,
+      showHidden: true,
+      customInspect: false,
+    }),
+    'util.inspect(client, showHidden, customInspect false) (console.dir)': inspect(client, {
+      depth: 10,
+      showHidden: true,
+      customInspect: false,
+    }),
     'util.inspect({ ...client }, showHidden)': inspect(
       { ...(client as object) },
       { depth: 10, showHidden: true },
