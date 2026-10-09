@@ -1,3 +1,8 @@
+import { createExpressAdapter, type ExpressAdapter } from './adapters/express.js';
+import { createFastifyAdapter, type FastifyAdapter } from './adapters/fastify.js';
+import { createFetchAdapter, type FetchAdapter } from './adapters/fetch.js';
+import { stripQuery } from './adapters/audience.js';
+import { createAdapterHost } from './adapters/host.js';
 import {
   INSPECT_CUSTOM,
   requireAppSecret,
@@ -36,24 +41,41 @@ import { verifyRawRequest, type RawRequest, type VerifyResult } from './verify.j
  */
 export class CraftedAI {
   readonly config: ResolvedConfig;
-  /** @internal */ readonly onError: (error: unknown) => void;
-  private readonly fetchImpl: typeof fetch;
-  private readonly now: () => number;
-  private readonly replay: ReplayStore;
-  private readonly jwks: JwksCache;
+  /** Express guard and session route: `craftedai.express.verifyRequest()`. */
+  readonly express: ExpressAdapter;
+  /** Fastify guard and session route: `craftedai.fastify.protect(instance)`. */
+  readonly fastify: FastifyAdapter;
+  /** Web-standard guard and session route (Next.js, Remix, Hono, Bun, Deno). */
+  readonly fetch: FetchAdapter;
+  // Everything the integrator hands in (replay store, which may wrap an authenticated Redis
+  // client; fetch; clock; onError) lives in `#private` fields: no spread, `Object.keys`,
+  // `util.inspect({ showHidden })` or serializer can reach it.
+  readonly #fetchImpl: typeof fetch;
+  readonly #now: () => number;
+  readonly #replay: ReplayStore;
+  readonly #jwks: JwksCache;
 
   constructor(options: CraftedAIOptions = {}) {
     this.config = resolveConfig(options);
-    this.fetchImpl = options.fetch ?? ((input, init) => globalThis.fetch(input, init));
-    this.now = options.now ?? Date.now;
-    this.onError = options.onError ?? (() => undefined);
-    this.replay = options.replayStore ?? new MemoryReplayStore({ now: this.now });
+    this.#fetchImpl = options.fetch ?? ((input, init) => globalThis.fetch(input, init));
+    this.#now = options.now ?? Date.now;
+    this.#replay = options.replayStore ?? new MemoryReplayStore({ now: this.#now });
     // Never `allowTestVectorKeys` or `maxStalenessMs`: those are test-only seams of JwksCache.
-    this.jwks = new JwksCache({
+    this.#jwks = new JwksCache({
       apiOrigin: this.config.apiOrigin,
-      fetch: this.fetchImpl,
-      now: this.now,
+      fetch: this.#fetchImpl,
+      now: this.#now,
     });
+    // The adapters get bound closures, never the client: they cannot reach the integrator's objects.
+    const host = createAdapterHost({
+      verifyRaw: (request, publicUrl) => this.verifyRaw(request, publicUrl),
+      verifyMcpRequest: (request, verifyOptions) => this.verifyMcpRequest(request, verifyOptions),
+      createSession: (input) => this.createSession(input),
+      onError: options.onError ?? (() => undefined),
+    });
+    this.express = createExpressAdapter(host);
+    this.fastify = createFastifyAdapter(host);
+    this.fetch = createFetchAdapter(host);
   }
 
   /** Mint an embed session for a signed-in user (spec §5.3, §5.5). Web app only. */
@@ -63,8 +85,8 @@ export class CraftedAI {
       secretKey: requireSecretKey(this.config),
       appSecret: requireAppSecret(this.config),
       orgId: requireOrgId(this.config),
-      fetch: this.fetchImpl,
-      now: this.now,
+      fetch: this.#fetchImpl,
+      now: this.#now,
     });
   }
 
@@ -73,13 +95,15 @@ export class CraftedAI {
     return revokeSessions(externalUserId, {
       apiOrigin: this.config.apiOrigin,
       secretKey: requireSecretKey(this.config),
-      fetch: this.fetchImpl,
+      fetch: this.#fetchImpl,
     });
   }
 
   /**
    * Verify a signed MCP request (spec §5.2) from a fetch `Request`. Reads the
-   * body from a clone, so the original stays readable for your handler.
+   * body from a clone, so the original stays readable for your handler. The audience is
+   * `request.url` without its query string or fragment (core-api's `aud` is the stored
+   * endpoint URL); `X-Forwarded-*` is never read, so behind a proxy pass `publicUrl`.
    */
   async verifyMcpRequest(
     request: Request,
@@ -89,7 +113,7 @@ export class CraftedAI {
     return this.verifyRaw(
       {
         method: request.method,
-        url: request.url,
+        url: stripQuery(request.url),
         header: (name) => request.headers.get(name) ?? undefined,
         body: bytes.length === 0 ? null : bytes,
       },
@@ -116,9 +140,9 @@ export class CraftedAI {
       requireDelegation: this.config.requireDelegation,
       delegationCallLimit: this.config.delegationCallLimit,
       publicUrl: accepted,
-      jwks: this.jwks,
-      replay: this.replay,
-      now: this.now,
+      jwks: this.#jwks,
+      replay: this.#replay,
+      now: this.#now,
     });
   }
 

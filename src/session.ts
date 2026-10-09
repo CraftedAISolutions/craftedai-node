@@ -228,6 +228,33 @@ export interface SessionHandlerOptions<Req> {
   ttlSeconds?: number;
 }
 
+/**
+ * Build-time validation of a framework session handler's options (review correction 4): a bad
+ * `ttlSeconds` is a startup `config_invalid`, never a per-request 502.
+ */
+export function assertSessionHandlerOptions<Req>(options: SessionHandlerOptions<Req>): void {
+  if (typeof options.getUser !== 'function') {
+    throw new CraftedAIError('config_invalid', 'sessionHandler needs a getUser function');
+  }
+  if (options.agentIds !== undefined && !Array.isArray(options.agentIds)) {
+    throw new CraftedAIError('config_invalid', 'agentIds must be an array of agent ids');
+  }
+  if (options.ttlSeconds !== undefined) {
+    const { min, max } = EMBED_SESSION_TTL_SECONDS;
+    if (
+      typeof options.ttlSeconds !== 'number' ||
+      !Number.isInteger(options.ttlSeconds) ||
+      options.ttlSeconds < min ||
+      options.ttlSeconds > max
+    ) {
+      throw new CraftedAIError(
+        'config_invalid',
+        `ttlSeconds must be a whole number between ${min} and ${max}`,
+      );
+    }
+  }
+}
+
 export interface SessionRouteInput {
   user: string | null | undefined;
   contentType: string | undefined;

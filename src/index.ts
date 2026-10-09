@@ -11,6 +11,20 @@ export {
   type RedisLikeClient,
   type RedisReplayStoreOptions,
 } from './replay/redis-replay-store.js';
+export type {
+  ExpressAdapter,
+  ExpressLikeHandler,
+  ExpressLikeRequest,
+  ExpressVerifyOptions,
+} from './adapters/express.js';
+export type {
+  FastifyAdapter,
+  FastifyLikeInstance,
+  FastifyLikeReply,
+  FastifyLikeRequest,
+  FastifyProtectOptions,
+} from './adapters/fastify.js';
+export type { FetchAdapter, FetchHandler } from './adapters/fetch.js';
 export {
   ACTOR_DELEGATION_HEADER,
   REQUEST_TOKEN_HEADER,
