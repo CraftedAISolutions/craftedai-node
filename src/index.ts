@@ -1,5 +1,21 @@
-/**
- * @craftedai/node — server library for the CraftedAI embedded assistant
- * (spec 2026-10-02 §8). Public exports land here task by task (CRA-352).
- */
-export {};
+export { CraftedAI } from './craftedai.js';
+export type { CraftedAIOptions, ResolvedConfig } from './config.js';
+export { CraftedAIError, CRAFTEDAI_ERROR_CODES, type CraftedAIErrorCode } from './errors.js';
+export type { CreateSessionInput, EmbedSessionBoot, SessionHandlerOptions } from './session.js';
+export type { CraftedAIRequestContext, VerifyResult, VerificationFailureBody } from './verify.js';
+export type { CspDirectives } from './csp.js';
+export type { ReplayStore } from './replay/replay-store.js';
+export { MemoryReplayStore, type MemoryReplayStoreOptions } from './replay/memory-replay-store.js';
+export {
+  redisReplayStore,
+  type RedisLikeClient,
+  type RedisReplayStoreOptions,
+} from './replay/redis-replay-store.js';
+export {
+  ACTOR_DELEGATION_HEADER,
+  REQUEST_TOKEN_HEADER,
+  REQUEST_VERIFICATION_REASONS,
+  VERIFICATION_FAILED_ERROR,
+  type RequestVerificationReason,
+} from './contract.js';
+export type { RequestTokenAct } from './claims.js';
