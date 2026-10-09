@@ -11,11 +11,19 @@
 export interface ReplayStore {
   /** True when `key` was recorded and has not expired. */
   has(key: string): Promise<boolean>;
-  /** Records `key` atomically. Resolves `false` when it already existed (lost a race). */
+  /**
+   * Records `key` atomically. Resolves `false` when it already existed (lost a race).
+   *
+   * Seeding/testing primitive. The verifier must not compose these for the commit step — use recordRequest.
+   */
   markOnce(key: string, expiresAtSeconds: number): Promise<boolean>;
   /** Current counter value; 0 when absent or expired. */
   count(key: string): Promise<number>;
-  /** Atomically increments the counter (creating it with this expiry) and resolves the new value. */
+  /**
+   * Atomically increments the counter (creating it with this expiry) and resolves the new value.
+   *
+   * Seeding/testing primitive. The verifier must not compose these for the commit step — use recordRequest.
+   */
   increment(key: string, expiresAtSeconds: number): Promise<number>;
   /**
    * The verifier's one state write, after every other check has passed: record

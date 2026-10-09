@@ -53,6 +53,37 @@ describe.runIf(enabled)('redisReplayStore against real Redis', () => {
     expect(await a.ttl(`${prefix}d`)).toBeGreaterThan(290);
   });
 
+  describe('verifier clock behind Redis', () => {
+    // The verifier is 2 s behind Redis, and the delegation exp is already 1 s in
+    // the past by Redis's clock. An absolute PEXPIREAT would delete the counter
+    // at once and the limit would never hold; a TTL from the verifier's clock does.
+    const behind = () => Date.now() - 2_000;
+    const pastByRedis = () => Math.floor(Date.now() / 1000) - 1;
+
+    it('recordRequest still counts uses and holds the limit', async () => {
+      const store = redisReplayStore(a, { prefix, now: behind });
+      const outcomes = await Promise.all(
+        Array.from({ length: 5 }, (_, i) =>
+          store.recordRequest({
+            jtiKey: `req:skew${i}`,
+            jtiExpiresAtSeconds: pastByRedis(),
+            delegation: { key: 'del:skew', limit: 1, expiresAtSeconds: pastByRedis() },
+          }),
+        ),
+      );
+      expect(outcomes.filter((o) => o === 'recorded')).toHaveLength(1);
+      expect(outcomes.filter((o) => o === 'delegation_exhausted')).toHaveLength(4);
+      expect(await store.count('del:skew')).toBe(1);
+    });
+
+    it('increment keeps counting past 1', async () => {
+      const store = redisReplayStore(a, { prefix, now: behind });
+      expect(await store.increment('d:skew', pastByRedis())).toBe(1);
+      expect(await store.increment('d:skew', pastByRedis())).toBe(2);
+      expect(await store.count('d:skew')).toBe(2);
+    });
+  });
+
   describe('recordRequest', () => {
     it('same jti from two clients: exactly one recorded, the rest replayed, one use consumed', async () => {
       const viaA = redisReplayStore(a, { prefix });

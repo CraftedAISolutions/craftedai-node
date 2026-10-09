@@ -1,10 +1,16 @@
+import { CraftedAIError } from '../errors.js';
 import type { RecordRequestInput, RecordRequestOutcome, ReplayStore } from './replay-store.js';
 
 export interface MemoryReplayStoreOptions {
   /**
-   * Most live entries kept. When full, expired entries are dropped first, then
-   * the oldest live one (a replay window only above ~1,600 requests/s with the
-   * 60 s token life at the default). Default 100,000.
+   * Most live entries kept; an integer >= 2 (a delegated request writes two
+   * entries, and a limit of 1 would evict the jti it just recorded). When full,
+   * expired entries are dropped first, then the oldest live one, which opens a
+   * replay window. Request jtis live 60 s and delegation counters up to 300 s,
+   * and both share this capacity, so at the default the window opens above
+   * ~1,300 requests/s when delegations are reused (about 20 uses each) and as
+   * low as ~270 requests/s when every request carries its own delegation.
+   * Default 100,000.
    */
   maxEntries?: number;
   /** Unix milliseconds; test seam. */
@@ -29,7 +35,11 @@ export class MemoryReplayStore implements ReplayStore {
   private readonly now: () => number;
 
   constructor(options: MemoryReplayStoreOptions = {}) {
-    this.maxEntries = options.maxEntries ?? 100_000;
+    const maxEntries = options.maxEntries ?? 100_000;
+    if (!Number.isInteger(maxEntries) || maxEntries < 2) {
+      throw new CraftedAIError('config_invalid', 'maxEntries must be an integer >= 2');
+    }
+    this.maxEntries = maxEntries;
     this.now = options.now ?? Date.now;
   }
 

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { CraftedAIError } from '../errors.js';
 import { MemoryReplayStore } from './memory-replay-store.js';
 
 const NOW_S = 1_790_000_000;
@@ -10,6 +11,31 @@ function store(maxEntries?: number) {
 }
 
 describe('MemoryReplayStore', () => {
+  describe('maxEntries validation', () => {
+    it.each([1, 0, -5, 1.5, Number.NaN, Number.POSITIVE_INFINITY])(
+      'rejects maxEntries %s with config_invalid',
+      (maxEntries) => {
+        expect(() => new MemoryReplayStore({ maxEntries })).toThrow(CraftedAIError);
+        expect(() => new MemoryReplayStore({ maxEntries })).toThrow(
+          expect.objectContaining({ code: 'config_invalid' }),
+        );
+      },
+    );
+
+    it('accepts 2 and the default, and a delegated record then fits at 2', async () => {
+      expect(() => new MemoryReplayStore()).not.toThrow();
+      const { s } = store(2);
+      const outcome = await s.recordRequest({
+        jtiKey: 'req:j',
+        jtiExpiresAtSeconds: NOW_S + 60,
+        delegation: { key: 'del:d', limit: 2, expiresAtSeconds: NOW_S + 300 },
+      });
+      expect(outcome).toBe('recorded');
+      expect(await s.has('req:j')).toBe(true);
+      expect(await s.count('del:d')).toBe(1);
+    });
+  });
+
   it('markOnce succeeds once per key until it expires', async () => {
     const { s, advance } = store();
     expect(await s.markOnce('j1', NOW_S + 60)).toBe(true);

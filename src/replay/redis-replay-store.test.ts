@@ -47,13 +47,15 @@ describe('redisReplayStore', () => {
     expect(calls[0]).toEqual(['set', 'craftedai:replay:j1', '1', 'PX', 60_000, 'NX']);
   });
 
-  it('increments through the atomic INCR+EXPIREAT script', async () => {
+  it('increments through the atomic INCR+PEXPIRE script, with a ms TTL from the verifier clock', async () => {
     const { client, calls } = fakeRedis();
-    const store = redisReplayStore(client, { prefix: 'p:' });
+    const store = redisReplayStore(client, { prefix: 'p:', now: () => NOW_S * 1000 });
     expect(await store.increment('d1', NOW_S + 300)).toBe(1);
     expect(await store.increment('d1', NOW_S + 300)).toBe(2);
     expect(await store.count('d1')).toBe(2);
-    expect(calls[0]).toEqual(['eval', INCREMENT_SCRIPT, 1, 'p:d1', String(NOW_S + 300)]);
+    expect(calls[0]).toEqual(['eval', INCREMENT_SCRIPT, 1, 'p:d1', '300000']);
+    expect(INCREMENT_SCRIPT).toContain('PEXPIRE');
+    expect(INCREMENT_SCRIPT).not.toContain('AT');
   });
 
   it('never sets a TTL below 1 s', async () => {
@@ -66,6 +68,38 @@ describe('redisReplayStore', () => {
     const { client, calls } = fakeRedis();
     await redisReplayStore(client, { now: () => NOW_S * 1000 + 250 }).markOnce('j', NOW_S + 60);
     expect(calls[0]?.[4]).toBe(59_750);
+  });
+
+  describe('strict reply parsing', () => {
+    const clientWith = (overrides: Partial<RedisLikeClient>): RedisLikeClient => ({
+      get: () => Promise.resolve(null),
+      set: () => Promise.resolve('OK'),
+      eval: () => Promise.resolve(1),
+      ...overrides,
+    });
+
+    it.each(['3', -1, 1.5, Number.NaN, Number.MAX_SAFE_INTEGER + 1, null, undefined, {}])(
+      'increment rejects the reply %o',
+      async (reply) => {
+        const store = redisReplayStore(clientWith({ eval: () => Promise.resolve(reply) }));
+        await expect(store.increment('d', NOW_S + 300)).rejects.toThrow(/unexpected/);
+      },
+    );
+
+    it.each(['abc', '-1', '1.5', '2x', '', ' 3', '9007199254740993'])(
+      'count rejects the stored value %j',
+      async (raw) => {
+        const store = redisReplayStore(clientWith({ get: () => Promise.resolve(raw) }));
+        await expect(store.count('d')).rejects.toThrow(/unexpected/);
+      },
+    );
+
+    it('count accepts a plain non-negative integer and treats a missing key as 0', async () => {
+      expect(
+        await redisReplayStore(clientWith({ get: () => Promise.resolve('7') })).count('d'),
+      ).toBe(7);
+      expect(await redisReplayStore(clientWith({})).count('d')).toBe(0);
+    });
   });
 
   describe('recordRequest', () => {
@@ -89,16 +123,7 @@ describe('redisReplayStore', () => {
       });
       expect(outcome).toBe('recorded');
       expect(calls).toEqual([
-        [
-          'eval',
-          RECORD_REQUEST_SCRIPT,
-          2,
-          'p:req:j',
-          'p:del:d',
-          '60000',
-          String((NOW_S + 300) * 1000),
-          '20',
-        ],
+        ['eval', RECORD_REQUEST_SCRIPT, 2, 'p:req:j', 'p:del:d', '60000', '300000', '20'],
       ]);
     });
 

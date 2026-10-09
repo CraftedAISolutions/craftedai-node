@@ -20,9 +20,15 @@ export interface RedisLikeClient {
   eval(script: string, numKeys: number, ...keysAndArgs: string[]): Promise<unknown>;
 }
 
-/** INCR, and on first creation pin the expiry (EXPIREAT), atomically. */
+/**
+ * INCR, and on first creation pin the expiry, atomically. ARGV[1] is a TTL in
+ * ms computed from the verifier's clock, never an absolute time: with an
+ * absolute `PEXPIREAT`, Redis's clock would decide, and a delegation `exp`
+ * already past by Redis's clock would delete the counter at once, so the use
+ * limit would never hold.
+ */
 export const INCREMENT_SCRIPT =
-  "local n = redis.call('INCR', KEYS[1]) if n == 1 then redis.call('EXPIREAT', KEYS[1], ARGV[1]) end return n";
+  "local n = redis.call('INCR', KEYS[1]) if n == 1 then redis.call('PEXPIRE', KEYS[1], ARGV[1]) end return n";
 
 /**
  * Record a delegated request: refuse when the jti exists (1) or the delegation
@@ -31,7 +37,8 @@ export const INCREMENT_SCRIPT =
  * the check and both writes as one step.
  *
  * KEYS[1] request jti, KEYS[2] delegation counter.
- * ARGV[1] jti TTL ms, ARGV[2] delegation expiry (unix ms), ARGV[3] limit.
+ * ARGV[1] jti TTL ms, ARGV[2] delegation counter TTL ms (both from the
+ * verifier's clock, see INCREMENT_SCRIPT), ARGV[3] limit.
  */
 export const RECORD_REQUEST_SCRIPT = [
   "if redis.call('EXISTS', KEYS[1]) == 1 then return 1 end",
@@ -39,7 +46,7 @@ export const RECORD_REQUEST_SCRIPT = [
   'if uses >= tonumber(ARGV[3]) then return 2 end',
   "redis.call('SET', KEYS[1], '1', 'PX', ARGV[1])",
   "local n = redis.call('INCR', KEYS[2])",
-  "if n == 1 then redis.call('PEXPIREAT', KEYS[2], ARGV[2]) end",
+  "if n == 1 then redis.call('PEXPIRE', KEYS[2], ARGV[2]) end",
   'return 0',
 ].join(' ');
 
@@ -48,6 +55,14 @@ const OUTCOMES: Record<number, RecordRequestOutcome> = {
   1: 'replayed',
   2: 'delegation_exhausted',
 };
+
+/** A counter reply must be a safe integer >= 0; anything else fails closed. */
+function strictCount(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) {
+    throw new Error('replay store: unexpected counter reply from Redis');
+  }
+  return value;
+}
 
 export interface RedisReplayStoreOptions {
   /** Key prefix. Default `craftedai:replay:`. */
@@ -81,7 +96,8 @@ class RedisReplayStore implements ReplayStore {
 
   async count(key: string): Promise<number> {
     const raw = await this.client.get(this.prefix + key);
-    return raw === null ? 0 : Number.parseInt(raw, 10);
+    if (raw === null) return 0;
+    return strictCount(/^\d+$/.test(raw) ? Number(raw) : Number.NaN);
   }
 
   async increment(key: string, expiresAtSeconds: number): Promise<number> {
@@ -89,9 +105,9 @@ class RedisReplayStore implements ReplayStore {
       INCREMENT_SCRIPT,
       1,
       this.prefix + key,
-      String(expiresAtSeconds),
+      String(this.ttlMs(expiresAtSeconds)),
     );
-    return Number(result);
+    return strictCount(result);
   }
 
   async recordRequest(input: RecordRequestInput): Promise<RecordRequestOutcome> {
@@ -105,7 +121,7 @@ class RedisReplayStore implements ReplayStore {
       this.prefix + jtiKey,
       this.prefix + delegation.key,
       String(this.ttlMs(jtiExpiresAtSeconds)),
-      String(delegation.expiresAtSeconds * 1000),
+      String(this.ttlMs(delegation.expiresAtSeconds)),
       String(delegation.limit),
     );
     const outcome = typeof reply === 'number' ? OUTCOMES[reply] : undefined;
