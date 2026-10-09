@@ -56,6 +56,30 @@ jobs:
           node -e "require('./dist/index.cjs')"
           node --input-type=module -e "await import('./dist/index.js')"
 
+  example:
+    name: examples/express against the local package (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: ['20.19.0', '24.x']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            examples/express/package-lock.json
+      # The example depends on the library by file:../.. (a symlink to this checkout), so the
+      # library is installed and built first: the example imports its dist/.
+      - run: npm ci
+      - run: npm run build
+      - run: npm ci
+        working-directory: examples/express
+      - run: npm test
+        working-directory: examples/express
+
   contract-sync:
     name: frozen contract matches core-api
     runs-on: ubuntu-latest

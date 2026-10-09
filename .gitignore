@@ -3,6 +3,7 @@ dist
 coverage
 .env
 .env.*
+!.env.example
 examples/*/.env
 examples/*/node_modules
 *.tgz
