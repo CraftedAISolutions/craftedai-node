@@ -21,6 +21,7 @@ import {
   type RequestVerificationReason,
 } from './contract.js';
 import { verifyDelegationToken } from './delegation.js';
+import { CraftedAIError } from './errors.js';
 import type { JwksCache } from './jwks-cache.js';
 import type { RecordRequestInput, ReplayStore } from './replay/replay-store.js';
 
@@ -236,8 +237,13 @@ export async function verifyRawRequest(
     jtiExpiresAtSeconds: claims.exp,
     ...(delegation !== undefined ? { delegation } : {}),
   });
+  // Fail closed: only an explicit 'recorded' passes. A custom or plain-JS store that answers
+  // anything else (undefined, true, a misspelt string) must never let a request through.
   if (outcome === 'replayed') return fail('replayed');
   if (outcome === 'delegation_exhausted') return fail('delegation_exhausted');
+  if (outcome !== 'recorded') {
+    throw new CraftedAIError('config_invalid', 'the replay store returned an unexpected outcome');
+  }
 
   return {
     ok: true,

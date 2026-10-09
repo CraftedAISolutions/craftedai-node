@@ -1,10 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import { delegationFor, NOW, signRequest, VECTOR_CONFIG } from '../test/helpers/sign.js';
 import { vectors } from '../test/helpers/vectors.js';
+import { CraftedAIError } from './errors.js';
 import { JwksCache } from './jwks-cache.js';
 import { MemoryReplayStore } from './replay/memory-replay-store.js';
 import type { RecordRequestInput, ReplayStore } from './replay/replay-store.js';
-import { verifyRawRequest, type RawRequest, type VerifierDeps } from './verify.js';
+import { failureBody, verifyRawRequest, type RawRequest, type VerifierDeps } from './verify.js';
 
 const CALL_BODY =
   '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"get_order","arguments":{}}}';
@@ -505,5 +506,64 @@ describe('app secret rotation (CRAFTEDAI_APP_SECRET_PREVIOUS)', () => {
       );
     expect((await send()).ok).toBe(true);
     expect(await send()).toEqual({ ok: false, reason: 'delegation_exhausted' });
+  });
+});
+
+describe('fail closed on a misbehaving or failing replay store', () => {
+  const storeWith = (overrides: Partial<ReplayStore>): ReplayStore => ({
+    ...bind(new MemoryReplayStore({ now: () => NOW * 1000 })),
+    recordRequest: () => Promise.resolve('recorded'),
+    ...overrides,
+  });
+
+  it.each([
+    ['undefined', undefined],
+    ['true', true],
+    ['a misspelt string', 'Recorded'],
+  ])('a store answering %s never lets the request through', async (_label, answer) => {
+    const { deps } = harness({
+      replay: storeWith({ recordRequest: () => Promise.resolve(answer as never) }),
+    });
+    const token = await signRequest({ body: CALL_BODY });
+    const outcome = await verifyRawRequest(req(token, CALL_BODY), deps).then(
+      (result) => result,
+      (error: unknown) => error,
+    );
+    expect(outcome).toBeInstanceOf(CraftedAIError);
+    expect(outcome).toMatchObject({ code: 'config_invalid' });
+  });
+
+  it('rejects when recordRequest rejects, never resolving ok', async () => {
+    const { deps } = harness({
+      replay: storeWith({ recordRequest: () => Promise.reject(new Error('redis down')) }),
+    });
+    const token = await signRequest({ body: CALL_BODY });
+    await expect(verifyRawRequest(req(token, CALL_BODY), deps)).rejects.toThrow('redis down');
+  });
+
+  it('rejects when has rejects, never resolving ok', async () => {
+    const { deps } = harness({
+      replay: storeWith({ has: () => Promise.reject(new Error('redis down')) }),
+    });
+    const token = await signRequest({ body: CALL_BODY });
+    await expect(verifyRawRequest(req(token, CALL_BODY), deps)).rejects.toThrow('redis down');
+  });
+});
+
+describe('failureBody', () => {
+  it('caps the message at 500 characters', () => {
+    const body = failureBody({ ok: false, reason: 'expired', message: 'x'.repeat(501) });
+    expect(body.message).toBe('x'.repeat(500));
+  });
+
+  it('keeps a message of exactly 500 characters whole', () => {
+    const message = 'y'.repeat(500);
+    expect(failureBody({ ok: false, reason: 'expired', message }).message).toBe(message);
+  });
+
+  it('omits message when there is none', () => {
+    const body = failureBody({ ok: false, reason: 'replayed' });
+    expect(body).toEqual({ error: 'craftedai_verification_failed', reason: 'replayed' });
+    expect('message' in body).toBe(false);
   });
 });
