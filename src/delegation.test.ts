@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { SignJWT } from 'jose';
+import { SignJWT, UnsecuredJWT, generateKeyPair } from 'jose';
 import { describe, expect, it } from 'vitest';
 import { mintDelegationToken, verifyDelegationToken } from './delegation.js';
 
@@ -83,6 +83,35 @@ describe('delegation token (spec §5.3)', () => {
 
   it('refuses HS512 even with the right secret (alg pinned)', async () => {
     const token = await signWithHeader({ alg: 'HS512', typ: 'JWT' });
+    expect(await verify(token)).toBeNull();
+  });
+
+  it('refuses an unsigned alg:none token with otherwise valid claims', async () => {
+    const token = new UnsecuredJWT({ org: ORG })
+      .setIssuer('craftedai-node')
+      .setAudience('craftedai-delegation')
+      .setSubject('member-1')
+      .setIssuedAt(NOW)
+      .setExpirationTime(NOW + 300)
+      .setJti('d-1')
+      .encode();
+    expect(JSON.parse(Buffer.from(token.split('.')[0]!, 'base64url').toString())).toMatchObject({
+      alg: 'none',
+    });
+    expect(await verify(token)).toBeNull();
+  });
+
+  it('refuses an EdDSA-signed token with otherwise valid claims', async () => {
+    const { privateKey } = await generateKeyPair('EdDSA');
+    const token = await new SignJWT({ org: ORG })
+      .setProtectedHeader({ alg: 'EdDSA', typ: 'JWT' })
+      .setIssuer('craftedai-node')
+      .setAudience('craftedai-delegation')
+      .setSubject('member-1')
+      .setIssuedAt(NOW)
+      .setExpirationTime(NOW + 300)
+      .setJti('d-1')
+      .sign(privateKey);
     expect(await verify(token)).toBeNull();
   });
 
