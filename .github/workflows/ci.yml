@@ -61,7 +61,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node: ['20.19.0', '24.x']
+        node: ['20.19.0', '22.x', '24.x']
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

@@ -44,7 +44,11 @@ export interface CraftedAIOptions {
   delegationCallLimit?: number;
   /** Default: in-memory LRU (single instance). Use `redisReplayStore(client)` when running several. */
   replayStore?: ReplayStore;
-  /** Called with every error a framework adapter turns into a response. Never receives a secret. */
+  /**
+   * Called with every error a framework adapter turns into a response. A `CraftedAIError` (stable
+   * `code`) never carries a secret; an error thrown by your own replay store, `fetch` or `getUser`
+   * reaches it as thrown, so when in doubt log `name` and `code` only, not `message`.
+   */
   onError?: (error: unknown) => void;
   fetch?: typeof fetch;
   /** Unix milliseconds; test seam. */

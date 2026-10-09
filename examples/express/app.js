@@ -4,20 +4,24 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import express from 'express';
 
+// Anything a visitor can type and the page prints goes through this first.
+const escapeHtml = (text) =>
+  String(text).replace(
+    /[&<>"']/g,
+    (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char],
+  );
+
 // A toy order database. Replace with yours.
 const ORDERS = { 'member-1': { id: 'ord_1001', status: 'shipped' } };
 
 /**
  * @param {object} options
  * @param {import('@craftedai/node').CraftedAI} options.craftedai
- * @param {string} [options.agentId] the agent the widget talks to
+ * @param {string} [options.agentId] the agent the widget talks to; when set, the session route
+ *   mints for this agent only
  * @param {boolean} [options.e2e] expose GET /__e2e/mcp-calls (the verified contexts the MCP saw)
  */
-export function createApp({
-  craftedai,
-  agentId = '<agent id from npx craftedai init>',
-  e2e = false,
-}) {
+export function createApp({ craftedai, agentId, e2e = false }) {
   const app = express();
 
   // ------------------------------------------------------------ toy auth (replace with yours)
@@ -99,15 +103,23 @@ export function createApp({
       `default-src 'self'; ${craftedai.cspDirectiveString()}`,
     );
     const user = currentUser(req);
+    const widgetAgent = agentId ?? '<agent id from npx craftedai init>';
     res.type('html').send(`<!doctype html><title>Example shop</title>
-<p>${user ? `Signed in as ${user}. <form method=post action=/logout><button>Log out</button></form>` : '<form method=post action=/login><input name=user value=member-1><button>Log in</button></form>'}</p>
-<script src="${craftedai.config.chatOrigin}/widget.js" data-agent="${agentId}"
+<p>${user ? `Signed in as ${escapeHtml(user)}. <form method=post action=/logout><button>Log out</button></form>` : '<form method=post action=/login><input name=user value=member-1><button>Log in</button></form>'}</p>
+<script src="${escapeHtml(craftedai.config.chatOrigin)}/widget.js" data-agent="${escapeHtml(widgetAgent)}"
         data-session-endpoint="/craftedai/session" async></script>`);
   });
 
   // The widget posts { agentId } as JSON. sessionHandler reads and parses that body itself, so no
   // app-wide body parser is mounted (and none can ever sit in front of the MCP guard).
-  app.post('/craftedai/session', craftedai.express.sessionHandler({ getUser: currentUser }));
+  // With an agent id configured, the route mints for that agent only (anything else is a 403).
+  app.post(
+    '/craftedai/session',
+    craftedai.express.sessionHandler({
+      getUser: currentUser,
+      ...(agentId === undefined ? {} : { agentIds: [agentId] }),
+    }),
+  );
 
   return app;
 }

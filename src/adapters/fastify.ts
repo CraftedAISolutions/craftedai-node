@@ -143,8 +143,9 @@ export function createFastifyAdapter(host: AdapterHost): FastifyAdapter {
           contexts.set(request, result.context);
           return undefined;
         } catch (error) {
-          // Fail closed: the error (which may carry a connection string) goes to onError, never
-          // to Fastify's default handler, and the route handler is not reached.
+          // Fail closed: the error goes to onError, never to Fastify's default handler, and the
+          // route handler is not reached. A CraftedAIError never carries a secret, but this may be
+          // your own replay store's error, whose message the library does not control.
           host.reportError(error);
           const status = verificationFailureStatus(error);
           if (status === 503) reply.header('retry-after', VERIFICATION_RETRY_AFTER_SECONDS);

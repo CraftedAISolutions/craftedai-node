@@ -1,10 +1,13 @@
+// Runs only inside the @craftedai/node repository: it imports the library's own test signer
+// (../../test/helpers/own-signer.ts) and delegation minter (../../src), which are not published.
+// Do not copy this file with the example; copy app.js, server.js and package.json.
 import { spawn } from 'node:child_process';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { createServer } from 'node:net';
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CraftedAI } from '@craftedai/node';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 // The library's own signer helpers: a freshly generated Ed25519 key, never the published vector keys.
 import { createOwnSigner } from '../../test/helpers/own-signer.ts';
 import { mintDelegationToken } from '../../src/delegation.ts';
@@ -33,7 +36,7 @@ afterEach(async () => {
 });
 
 /** The example app on a free port, wired to a fake core-api (JWKS + embed sessions). */
-async function start({ env = {}, e2e = true } = {}) {
+async function start({ env = {}, e2e = true, agentId = AGENT_ID } = {}) {
   const signer = await createOwnSigner(ISSUER, ORG_ID);
   const coreApiCalls = [];
   const craftedai = new CraftedAI({
@@ -64,7 +67,7 @@ async function start({ env = {}, e2e = true } = {}) {
       return signer.fetch(input, init);
     },
   });
-  const app = createApp({ craftedai, agentId: AGENT_ID, e2e });
+  const app = createApp({ craftedai, ...(agentId === null ? {} : { agentId }), e2e });
   const server = await new Promise((resolve) => {
     const listening = app.listen(0, '127.0.0.1', () => resolve(listening));
   });
@@ -219,6 +222,46 @@ describe('the web app', () => {
     });
   });
 
+  it('escapes the signed-in user name in the page', async () => {
+    const { origin } = await start();
+    const hostile = '<img src=x onerror=alert(1)>';
+    const login = await fetch(`${origin}/login`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ user: hostile }),
+      redirect: 'manual',
+    });
+    const cookie = login.headers.get('set-cookie').split(';')[0];
+    const html = await (await fetch(`${origin}/`, { headers: { cookie } })).text();
+    expect(html).toContain('Signed in as &lt;img src=x onerror=alert(1)&gt;');
+    expect(html).not.toContain('<img');
+  });
+
+  it('pins the session route to its agent: another agent gets 403', async () => {
+    const { origin, coreApiCalls } = await start();
+    const cookie = await loggedIn(origin);
+    const response = await fetch(`${origin}/craftedai/session`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', origin, cookie },
+      body: JSON.stringify({ agentId: randomUUID() }),
+    });
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({ error: 'agent_not_allowed' });
+    expect(coreApiCalls).toEqual([]);
+  });
+
+  it('mints for any agent the key allows when no agent id is configured', async () => {
+    const { origin, coreApiCalls } = await start({ agentId: null });
+    const cookie = await loggedIn(origin);
+    const response = await fetch(`${origin}/craftedai/session`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', origin, cookie },
+      body: JSON.stringify({ agentId: randomUUID() }),
+    });
+    expect(response.status).toBe(200);
+    expect(coreApiCalls).toHaveLength(1);
+  });
+
   it('answers 401 to the session route when nobody is signed in', async () => {
     const { origin, coreApiCalls } = await start();
     const response = await fetch(`${origin}/craftedai/session`, {
@@ -246,40 +289,76 @@ describe('the web app', () => {
 
 describe('server.js', () => {
   it('boots from the environment alone and serves the page', async () => {
-    const port = await new Promise((resolve) => {
-      const probe = createServer().listen(0, '127.0.0.1', () => {
-        const { port: free } = probe.address();
-        probe.close(() => resolve(free));
-      });
-    });
-    const child = spawn(process.execPath, ['server.js'], {
-      cwd: dirname(fileURLToPath(import.meta.url)),
-      env: {
-        ...process.env,
-        PORT: String(port),
-        CRAFTEDAI_SECRET_KEY: SECRET_KEY,
-        CRAFTEDAI_APP_SECRET: APP_SECRET,
-        CRAFTEDAI_ORG_ID: ORG_ID,
-        CRAFTEDAI_AGENT_ID: AGENT_ID,
-      },
-      stdio: ['ignore', 'pipe', 'inherit'],
-    });
-    closers.push(
-      () =>
-        new Promise((resolve) => {
-          child.once('exit', resolve);
-          child.kill();
-        }),
-    );
-    await new Promise((resolve, reject) => {
-      child.once('error', reject);
-      child.once('exit', (code) => reject(new Error(`server.js exited early (${code})`)));
-      child.stdout.on('data', (chunk) => {
-        if (String(chunk).includes('listening')) resolve();
-      });
-    });
+    const { port, stderr } = await boot();
     const response = await fetch(`http://127.0.0.1:${port}/`);
     expect(response.status).toBe(200);
     expect(await response.text()).toContain(`data-agent="${AGENT_ID}"`);
+    expect(stderr()).toBe('');
+  });
+
+  it('logs the error name and code to onError, never its message', async () => {
+    // core-api is unreachable, so minting fails: a 502 and one onError call.
+    const { port, stderr } = await boot({ CRAFTEDAI_API_ORIGIN: 'http://127.0.0.1:1' });
+    const origin = `http://127.0.0.1:${port}`;
+    const login = await fetch(`${origin}/login`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: 'user=member-1',
+      redirect: 'manual',
+    });
+    const response = await fetch(`${origin}/craftedai/session`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        origin,
+        cookie: login.headers.get('set-cookie').split(';')[0],
+      },
+      body: JSON.stringify({ agentId: AGENT_ID }),
+    });
+    expect(response.status).toBe(502);
+    await vi.waitFor(() => expect(stderr()).toContain('CraftedAIError api_unavailable'));
+    // The message names the unreachable URL; it must not be logged.
+    expect(stderr()).not.toContain('could not reach');
+    expect(stderr()).not.toContain('127.0.0.1:1');
   });
 });
+
+/** Spawns `node server.js` with a generated config; resolves once it is listening. */
+async function boot(extraEnv = {}) {
+  const port = await new Promise((resolve) => {
+    const probe = createServer().listen(0, '127.0.0.1', () => {
+      const { port: free } = probe.address();
+      probe.close(() => resolve(free));
+    });
+  });
+  const child = spawn(process.execPath, ['server.js'], {
+    cwd: dirname(fileURLToPath(import.meta.url)),
+    env: {
+      ...process.env,
+      PORT: String(port),
+      CRAFTEDAI_SECRET_KEY: SECRET_KEY,
+      CRAFTEDAI_APP_SECRET: APP_SECRET,
+      CRAFTEDAI_ORG_ID: ORG_ID,
+      CRAFTEDAI_AGENT_ID: AGENT_ID,
+      ...extraEnv,
+    },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  closers.push(
+    () =>
+      new Promise((resolve) => {
+        child.once('exit', resolve);
+        child.kill();
+      }),
+  );
+  let errors = '';
+  child.stderr.on('data', (chunk) => (errors += String(chunk)));
+  await new Promise((resolve, reject) => {
+    child.once('error', reject);
+    child.once('exit', (code) => reject(new Error(`server.js exited early (${code}): ${errors}`)));
+    child.stdout.on('data', (chunk) => {
+      if (String(chunk).includes('listening')) resolve();
+    });
+  });
+  return { port, stderr: () => errors };
+}
