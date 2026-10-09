@@ -72,4 +72,5 @@ jobs:
           cmp core-api/src/domain/request-signing/request-token-wire.ts test/contract/core-api/request-token-wire.ts
           cmp core-api/src/domain/request-signing/delegation-token-wire.ts test/contract/core-api/delegation-token-wire.ts
           cmp core-api/src/domain/embed/embed-wire-constants.ts test/contract/core-api/embed-wire-constants.ts
+          cmp core-api/src/domain/request-signing/test-vector-kids.ts test/contract/core-api/test-vector-kids.ts
           cmp core-api/test/vectors/request-token.json test/vectors/request-token.json

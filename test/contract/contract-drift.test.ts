@@ -11,6 +11,7 @@ import * as lib from '../../src/contract.js';
 import * as coreDelegation from './core-api/delegation-token-wire.js';
 import * as coreEmbed from './core-api/embed-wire-constants.js';
 import * as coreRequest from './core-api/request-token-wire.js';
+import * as coreTestKids from './core-api/test-vector-kids.js';
 
 /**
  * Drift guard for the frozen contract. `./core-api/*.ts` are byte-for-byte
@@ -152,6 +153,21 @@ describe('frozen contract drift (CRA-350 → @craftedai/node)', () => {
     ) as { cases: unknown[] };
     expect(vectors.cases).toHaveLength(36);
     expect(lib.KNOWN_CHANNELS).toEqual(['web', 'api']);
+  });
+
+  it('TEST_VECTOR_KIDS equals core-api and the kids used in the vectors file', () => {
+    expect([...lib.TEST_VECTOR_KIDS]).toEqual([...coreTestKids.TEST_VECTOR_KIDS]);
+    const vectors = JSON.parse(
+      readFileSync(new URL('../vectors/request-token.json', import.meta.url), 'utf8'),
+    ) as {
+      jwks: { keys: { kid: string }[] };
+      testOnlyPrivateKeys: Record<string, { kid: string }>;
+    };
+    const kids = new Set([
+      ...vectors.jwks.keys.map((key) => key.kid),
+      ...Object.values(vectors.testOnlyPrivateKeys).map((key) => key.kid),
+    ]);
+    expect([...lib.TEST_VECTOR_KIDS].sort()).toEqual([...kids].sort());
   });
 
   it.each(CLAIM_CASES)('request claims "%s": hand mirror agrees with zod', (_label, input) => {

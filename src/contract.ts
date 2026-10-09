@@ -3,6 +3,7 @@
  *   src/domain/request-signing/request-token-wire.ts
  *   src/domain/request-signing/delegation-token-wire.ts
  *   src/domain/embed/embed-wire-constants.ts
+ *   src/domain/request-signing/test-vector-kids.ts
  *
  * Values only: the library ships with one runtime dependency (`jose`), so the
  * zod schemas are mirrored by hand in `claims.ts`. Both the values here and the
@@ -30,6 +31,17 @@ export const JWKS_PATH = '/.well-known/jwks.json';
 export const JWKS_CACHE_MAX_AGE_SECONDS = 300;
 /** A verifier refetches the JWKS on an unknown `kid` at most this often. */
 export const JWKS_UNKNOWN_KID_REFETCH_MIN_INTERVAL_SECONDS = 30;
+
+/**
+ * Key ids of the published TEST-ONLY signing keys behind `test/vectors/request-token.json`
+ * (core-api `test-vector-kids.ts`). Their private keys derive from public seeds, so a
+ * verifier must never trust them in production: `JwksCache` drops them unless told otherwise.
+ */
+export const TEST_VECTOR_KIDS: readonly string[] = [
+  '_iUNiD3msWZh2EfcdIOLq-79H-Wt-zW3LObdQ94YKDA',
+  'VxXG3LHaHjIYjqD4mDtShqDcOCQ1Ea2G3ldXvPbMHlA',
+  'zcfL3RW9YWf_k--PzlvAYmAi7UzQg-lfjEpLKGg4WPM',
+] as const;
 
 /** `error` value of every verifier 401 body. */
 export const VERIFICATION_FAILED_ERROR = 'craftedai_verification_failed';
