@@ -4,7 +4,9 @@ import { failureBody, type CraftedAIRequestContext } from '../verify.js';
 import { assertMaxBodyBytes, audienceUrl, MAX_BODY_BYTES } from './audience.js';
 import {
   SESSION_UNAVAILABLE_BODY,
+  VERIFICATION_RETRY_AFTER_SECONDS,
   VERIFICATION_UNAVAILABLE_BODY,
+  verificationFailureStatus,
   type AdapterHost,
 } from './host.js';
 import { parseJsonBody } from './node-body.js';
@@ -36,6 +38,13 @@ export interface FastifyLikeInstance {
     ) => void,
   ): void;
   removeAllContentTypeParsers(): void;
+  setErrorHandler(
+    handler: (
+      error: Error & { code?: string },
+      request: FastifyLikeRequest,
+      reply: FastifyLikeReply,
+    ) => unknown,
+  ): void;
   addHook(
     name: 'preHandler',
     hook: (request: FastifyLikeRequest, reply: FastifyLikeReply) => Promise<unknown>,
@@ -60,11 +69,19 @@ export interface FastifyAdapter {
    * Replaces the scope's body parsers with one that keeps the exact bytes, then
    * verifies in `preHandler`. Read the result with `craftedai.fastify.context(request)`.
    *
+   * Always call it on a scope made with `register`. `protect(root)` on the root instance
+   * replaces every body parser on every route of the app (your JSON, form and multipart parsers
+   * included) and guards all of them. A body over `maxBodyBytes` is answered 413
+   * `{ error: 'payload_too_large' }` by an error handler installed on the scope (any other
+   * error goes on to your own handler); do not call `setErrorHandler` on the scope after
+   * `protect`, or yours replaces it.
+   *
    * The audience is `request.protocol://request.host/path` without the query string, as
    * Fastify reports it (`X-Forwarded-*` count only if you enabled Fastify's `trustProxy`).
    * Behind a proxy, set `publicUrl`. A verification that itself fails (replay store down)
-   * answers 500 `craftedai_verification_unavailable`, calls `onError`, and never reaches
-   * your handler.
+   * answers 503 `craftedai_verification_unavailable` with `Retry-After: 5`, calls `onError`,
+   * and never reaches your handler; a misconfigured client (`config_missing`/`config_invalid`)
+   * answers 500.
    */
   protect(instance: FastifyLikeInstance, options?: FastifyProtectOptions): void;
   context(request: FastifyLikeRequest): CraftedAIRequestContext | undefined;
@@ -85,6 +102,17 @@ export function createFastifyAdapter(host: AdapterHost): FastifyAdapter {
       const maxBodyBytes = options.maxBodyBytes ?? MAX_BODY_BYTES;
       assertMaxBodyBytes(maxBodyBytes);
       instance.removeAllContentTypeParsers();
+      // Fastify's own body-limit error carries its default error body; answer it like the other
+      // adapters. Anything else is rethrown, which hands it to the parent scope's handler.
+      instance.setErrorHandler((error, _request, reply) => {
+        if (error.code === 'FST_ERR_CTP_BODY_TOO_LARGE') {
+          return reply
+            .code(413)
+            .header('cache-control', 'no-store')
+            .send({ error: 'payload_too_large' });
+        }
+        throw error;
+      });
       // Fastify hands the parser its own request object (not `request.raw`).
       instance.addContentTypeParser(
         '*',
@@ -118,8 +146,10 @@ export function createFastifyAdapter(host: AdapterHost): FastifyAdapter {
           // Fail closed: the error (which may carry a connection string) goes to onError, never
           // to Fastify's default handler, and the route handler is not reached.
           host.reportError(error);
+          const status = verificationFailureStatus(error);
+          if (status === 503) reply.header('retry-after', VERIFICATION_RETRY_AFTER_SECONDS);
           return reply
-            .code(500)
+            .code(status)
             .header('cache-control', 'no-store')
             .send(VERIFICATION_UNAVAILABLE_BODY);
         }

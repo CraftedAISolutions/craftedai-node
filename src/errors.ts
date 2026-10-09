@@ -21,6 +21,8 @@ export const CRAFTEDAI_ERROR_CODES = [
   'invalid_request',
   /** core-api could not be reached, timed out, or answered something unexpected. */
   'api_unavailable',
+  /** A request body is over the configured `maxBodyBytes` (thrown by `verifyMcpRequest`). */
+  'payload_too_large',
 ] as const;
 export type CraftedAIErrorCode = (typeof CRAFTEDAI_ERROR_CODES)[number];
 

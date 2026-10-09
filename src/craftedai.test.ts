@@ -385,6 +385,57 @@ describe('the verifier as the client wires it', () => {
   );
 });
 
+describe('verifyMcpRequest body cap (fix round 1)', () => {
+  const call = (body: BodyInit, headers: Record<string, string> = {}) =>
+    new Request(vectors.config.publicUrl, {
+      method: 'POST',
+      headers,
+      body,
+      duplex: 'half',
+    } as RequestInit);
+
+  it('rejects payload_too_large past the default 1 MiB, resolves at exactly the cap', async () => {
+    const craftedai = new CraftedAI({ requireDelegation: false, env: {}, orgId: ORG_ID });
+    await expect(craftedai.verifyMcpRequest(call('a'.repeat(1024 * 1024 + 1)))).rejects.toThrow(
+      expect.objectContaining({ code: 'payload_too_large' }) as Error,
+    );
+    expect(await craftedai.verifyMcpRequest(call('a'.repeat(1024 * 1024)))).toMatchObject({
+      ok: false,
+      reason: 'missing_token',
+    });
+  });
+
+  it('honours maxBodyBytes, declared length first', async () => {
+    const craftedai = new CraftedAI({ requireDelegation: false, env: {}, orgId: ORG_ID });
+    await expect(
+      craftedai.verifyMcpRequest(call('tiny', { 'content-length': '11' }), { maxBodyBytes: 10 }),
+    ).rejects.toThrow(expect.objectContaining({ code: 'payload_too_large' }) as Error);
+    await expect(
+      craftedai.verifyMcpRequest(call('a'.repeat(11)), { maxBodyBytes: 10 }),
+    ).rejects.toThrow(expect.objectContaining({ code: 'payload_too_large' }) as Error);
+    expect(
+      await craftedai.verifyMcpRequest(call('a'.repeat(10)), { maxBodyBytes: 10 }),
+    ).toMatchObject({ ok: false, reason: 'missing_token' });
+  });
+
+  it('rejects an invalid maxBodyBytes with config_invalid', async () => {
+    const craftedai = new CraftedAI({ requireDelegation: false, env: {}, orgId: ORG_ID });
+    await expect(craftedai.verifyMcpRequest(call('a'), { maxBodyBytes: 0 })).rejects.toThrow(
+      expect.objectContaining({ code: 'config_invalid' }) as Error,
+    );
+  });
+
+  it('resolves body_mismatch for a request whose body was already read', async () => {
+    const craftedai = new CraftedAI({ requireDelegation: false, env: {}, orgId: ORG_ID });
+    const request = call('a');
+    await request.text();
+    expect(await craftedai.verifyMcpRequest(request)).toMatchObject({
+      ok: false,
+      reason: 'body_mismatch',
+    });
+  });
+});
+
 describe('CSP output (review correction 6)', () => {
   it('writes the string form with ; separators', () => {
     const craftedai = new CraftedAI({ requireDelegation: false, env: {} });

@@ -48,6 +48,9 @@ function mcpApp(
   return app;
 }
 
+const mcpGuard = () =>
+  craftedaiForVectors({ publicUrl: VECTOR_CONFIG.publicUrl }).express.verifyRequest();
+
 describe('express.verifyRequest()', () => {
   it('verifies the raw bytes, then hands the handler req.craftedai and the parsed body', async () => {
     const base = await listen(mcpApp());
@@ -208,7 +211,7 @@ describe('express.verifyRequest()', () => {
 
   describe('a verifier that rejects (review correction 2)', () => {
     it.each(['has', 'recordRequest'] as const)(
-      'answers 500, never runs the handler, never echoes the error (%s down)',
+      'answers 503 with Retry-After, never runs the handler, never echoes the error (%s down)',
       async (method) => {
         const onError = vi.fn();
         const reached = vi.fn();
@@ -232,7 +235,8 @@ describe('express.verifyRequest()', () => {
           body: BODY,
         });
         const text = await res.text();
-        expect(res.status).toBe(500);
+        expect(res.status).toBe(503);
+        expect(res.headers.get('retry-after')).toBe('5');
         expect(reached).not.toHaveBeenCalled();
         expect(text).not.toContain('hunter2');
         expect(text).not.toContain('ECONNREFUSED');
@@ -242,7 +246,7 @@ describe('express.verifyRequest()', () => {
       },
     );
 
-    it('answers 500 even when onError itself throws', async () => {
+    it('answers 503 even when onError itself throws', async () => {
       const craftedai = craftedaiForVectors({
         publicUrl: VECTOR_CONFIG.publicUrl,
         replayStore: failingReplayStore('has'),
@@ -259,7 +263,59 @@ describe('express.verifyRequest()', () => {
         },
         body: BODY,
       });
+      expect(res.status).toBe(503);
+    });
+
+    it('a misconfigured client (CraftedAIError config_*) stays a 500, without Retry-After', async () => {
+      const onError = vi.fn();
+      const craftedai = craftedaiForVectors({
+        publicUrl: VECTOR_CONFIG.publicUrl,
+        replayStore: failingReplayStore('has', new CraftedAIError('config_invalid', 'bad store')),
+        onError,
+      });
+      const base = await listen(mcpApp(craftedai));
+      const res = await fetch(`${base}/mcp`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-craftedai-request': await signRequest({ body: BODY }),
+        },
+        body: BODY,
+      });
       expect(res.status).toBe(500);
+      expect(res.headers.get('retry-after')).toBeNull();
+      expect(onError).toHaveBeenCalledOnce();
+    });
+  });
+
+  describe('Express 4 / body-parser 1.x (fix round 1)', () => {
+    // body-parser 1.x starts with `if (req._body) return next()`. Express 5 ships body-parser
+    // 2.x (which checks the stream state instead), so this pins the flag body-parser 1.x reads.
+    it('marks the request as already parsed (`_body`) once the guard drained the stream', async () => {
+      const app = express();
+      app.post(
+        '/mcp',
+        mcpGuard(),
+        (req, res, next) => {
+          // What body-parser 1.x does first.
+          if ((req as { _body?: boolean })._body) {
+            res.json({ skipped: true, raw: req.rawBody?.length });
+            return;
+          }
+          next();
+        },
+        (_req, res) => res.json({ skipped: false }),
+      );
+      const base = await listen(app);
+      const res = await fetch(`${base}/mcp`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-craftedai-request': await signRequest({ body: BODY }),
+        },
+        body: BODY,
+      });
+      expect(await res.json()).toEqual({ skipped: true, raw: Buffer.byteLength(BODY) });
     });
   });
 

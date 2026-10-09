@@ -1,8 +1,9 @@
 import { createExpressAdapter, type ExpressAdapter } from './adapters/express.js';
 import { createFastifyAdapter, type FastifyAdapter } from './adapters/fastify.js';
 import { createFetchAdapter, type FetchAdapter } from './adapters/fetch.js';
-import { stripQuery } from './adapters/audience.js';
-import { createAdapterHost } from './adapters/host.js';
+import { assertMaxBodyBytes, MAX_BODY_BYTES, stripQuery } from './adapters/audience.js';
+import { readCappedBody, TOO_LARGE } from './adapters/fetch-body.js';
+import { createAdapterHost, FETCH_CONSUMED_BODY_HINT } from './adapters/host.js';
 import {
   INSPECT_CUSTOM,
   requireAppSecret,
@@ -13,6 +14,7 @@ import {
   type CraftedAIOptions,
   type ResolvedConfig,
 } from './config.js';
+import { CraftedAIError } from './errors.js';
 import { cspDirectives, formatCspDirectives, type CspDirectives } from './csp.js';
 import { JwksCache } from './jwks-cache.js';
 import { MemoryReplayStore } from './replay/memory-replay-store.js';
@@ -104,18 +106,36 @@ export class CraftedAI {
    * body from a clone, so the original stays readable for your handler. The audience is
    * `request.url` without its query string or fragment (core-api's `aud` is the stored
    * endpoint URL); `X-Forwarded-*` is never read, so behind a proxy pass `publicUrl`.
+   *
+   * The body is read up to `maxBodyBytes` (default 1 MiB), a declared `Content-Length` over the
+   * cap first, then the streamed bytes. Past the cap it rejects with
+   * `CraftedAIError('payload_too_large')`: a `VerifyResult` cannot carry a 413, so a caller
+   * using this method directly catches that code and answers 413 (`craftedai.fetch` does it
+   * for you). An invalid `maxBodyBytes` rejects with `config_invalid`. A request whose body was
+   * already read cannot be verified: it resolves `body_mismatch`.
    */
   async verifyMcpRequest(
     request: Request,
-    options: { publicUrl?: string | readonly string[] } = {},
+    options: { publicUrl?: string | readonly string[]; maxBodyBytes?: number } = {},
   ): Promise<VerifyResult> {
-    const bytes = new Uint8Array(await request.clone().arrayBuffer());
+    const maxBodyBytes = options.maxBodyBytes ?? MAX_BODY_BYTES;
+    assertMaxBodyBytes(maxBodyBytes);
+    if (request.bodyUsed) {
+      return { ok: false, reason: 'body_mismatch', message: FETCH_CONSUMED_BODY_HINT };
+    }
+    const bytes = await readCappedBody(request, maxBodyBytes);
+    if (bytes === TOO_LARGE) {
+      throw new CraftedAIError(
+        'payload_too_large',
+        `the request body is over the ${String(maxBodyBytes)}-byte limit`,
+      );
+    }
     return this.verifyRaw(
       {
         method: request.method,
         url: stripQuery(request.url),
         header: (name) => request.headers.get(name) ?? undefined,
-        body: bytes.length === 0 ? null : bytes,
+        body: bytes === null || bytes.length === 0 ? null : bytes,
       },
       options.publicUrl,
     );

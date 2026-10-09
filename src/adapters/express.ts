@@ -10,7 +10,9 @@ import {
 } from './audience.js';
 import {
   SESSION_UNAVAILABLE_BODY,
+  VERIFICATION_RETRY_AFTER_SECONDS,
   VERIFICATION_UNAVAILABLE_BODY,
+  verificationFailureStatus,
   type AdapterHost,
 } from './host.js';
 import {
@@ -64,8 +66,9 @@ export interface ExpressAdapter {
    * `req.craftedai` is set, `req.rawBody` holds the exact bytes and `req.body` the parsed JSON
    * (a later `express.json()` is a no-op). If a body parser already consumed the stream it
    * answers 401 `body_mismatch` naming that cause (spec §12.3). A verification that itself
-   * fails (replay store down) answers 500 `craftedai_verification_unavailable`, calls
-   * `onError`, and never reaches your handler.
+   * fails (replay store down) answers 503 `craftedai_verification_unavailable` with
+   * `Retry-After: 5`, calls `onError`, and never reaches your handler; a misconfigured client
+   * (`config_missing`/`config_invalid`) answers 500.
    *
    * The audience is `req.protocol://Host/originalUrl-path` without the query string.
    * `X-Forwarded-Host` and `Forwarded` are never read; `X-Forwarded-Proto` counts only through
@@ -128,6 +131,9 @@ export function createExpressAdapter(host: AdapterHost): ExpressAdapter {
             return;
           }
           req.craftedai = result.context;
+          // The stream is drained. body-parser 1.x (Express 4) skips a request with `_body` set
+          // and would otherwise wait forever for 'end'; it needs this flag. Harmless on Express 5.
+          (req as { _body?: boolean })._body = true;
           if (read.body !== null) {
             req.rawBody = read.body;
             req.body ??= parseJsonBody(read.body, headerOf(req, 'content-type'));
@@ -137,7 +143,10 @@ export function createExpressAdapter(host: AdapterHost): ExpressAdapter {
           // Fail closed: a verifier that could not decide never lets the request through, and
           // the error (which may carry a connection string) is for onError, never the client.
           host.reportError(error);
-          if (!res.headersSent) sendJson(res, 500, VERIFICATION_UNAVAILABLE_BODY);
+          if (res.headersSent) return;
+          const status = verificationFailureStatus(error);
+          if (status === 503) res.setHeader('retry-after', VERIFICATION_RETRY_AFTER_SECONDS);
+          sendJson(res, status, VERIFICATION_UNAVAILABLE_BODY);
         });
       };
     },

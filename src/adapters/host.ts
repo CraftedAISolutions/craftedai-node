@@ -1,3 +1,4 @@
+import { CraftedAIError } from '../errors.js';
 import { handleSessionRoute, type CreateSessionInput, type EmbedSessionBoot } from '../session.js';
 import type { SessionRouteInput, SessionRouteResult } from '../session.js';
 import type { RawRequest, VerifyResult } from '../verify.js';
@@ -12,7 +13,7 @@ export interface AdapterHost {
   /** `CraftedAI.verifyMcpRequest`: a fetch `Request`, audience without the query string. */
   verifyMcpRequest(
     request: Request,
-    options?: { publicUrl?: string | readonly string[] },
+    options?: { publicUrl?: string | readonly string[]; maxBodyBytes?: number },
   ): Promise<VerifyResult>;
   createSession(input: CreateSessionInput): Promise<EmbedSessionBoot>;
   /** Hands an error to the integrator's `onError`; a throwing hook never changes the response. */
@@ -53,3 +54,21 @@ export const VERIFICATION_UNAVAILABLE_BODY = {
 } as const;
 /** Body of the 5xx a session route answers when `getUser` or the adapter itself failed. */
 export const SESSION_UNAVAILABLE_BODY = { error: 'session_unavailable' } as const;
+
+/** Seconds a client should wait before retrying when the verifier's backing store is down. */
+export const VERIFICATION_RETRY_AFTER_SECONDS = '5';
+
+/**
+ * Status for a verifier that threw. A misconfigured client (`config_missing`/`config_invalid`)
+ * stays a 500: retrying cannot help. Anything else is the verifier's backing store (replay
+ * store, Redis) failing, which is transient: 503, with `Retry-After`.
+ */
+export function verificationFailureStatus(error: unknown): 500 | 503 {
+  const misconfigured =
+    error instanceof CraftedAIError &&
+    (error.code === 'config_missing' || error.code === 'config_invalid');
+  return misconfigured ? 500 : 503;
+}
+
+export const FETCH_CONSUMED_BODY_HINT =
+  'the request body was already read; pass the untouched Request (e.g. Hono c.req.raw before c.req.json())';

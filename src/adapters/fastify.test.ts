@@ -127,7 +127,7 @@ describe('fastify.protect()', () => {
 
   describe('a verifier that rejects (review correction 2)', () => {
     it.each(['has', 'recordRequest'] as const)(
-      'answers 500, never runs the handler, never echoes the error (%s down)',
+      'answers 503 with Retry-After, never runs the handler, never echoes the error (%s down)',
       async (method) => {
         const onError = vi.fn();
         const reached = vi.fn();
@@ -143,7 +143,8 @@ describe('fastify.protect()', () => {
           headers: await mcpHeaders(BODY),
           payload: BODY,
         });
-        expect(res.statusCode).toBe(500);
+        expect(res.statusCode).toBe(503);
+        expect(res.headers['retry-after']).toBe('5');
         expect(reached).not.toHaveBeenCalled();
         expect(res.body).not.toContain('hunter2');
         expect(res.body).not.toContain('ECONNREFUSED');
@@ -154,8 +155,24 @@ describe('fastify.protect()', () => {
     );
   });
 
+  it('a misconfigured client (CraftedAIError config_*) stays a 500, without Retry-After', async () => {
+    const craftedai = craftedaiForVectors({
+      publicUrl: VECTOR_CONFIG.publicUrl,
+      replayStore: failingReplayStore('has', new CraftedAIError('config_invalid', 'bad store')),
+    });
+    const fastify = await app(craftedai);
+    const res = await fastify.inject({
+      method: 'POST',
+      url: '/mcp',
+      headers: await mcpHeaders(BODY),
+      payload: BODY,
+    });
+    expect(res.statusCode).toBe(500);
+    expect(res.headers['retry-after']).toBeUndefined();
+  });
+
   describe('body cap', () => {
-    it('Fastify refuses a body over maxBodyBytes with 413 before the handler', async () => {
+    it('Fastify refuses a body over maxBodyBytes with 413 and the shared body, before the handler', async () => {
       const reached = vi.fn();
       const fastify = await app(undefined, { maxBodyBytes: 100 }, reached);
       const res = await fastify.inject({
@@ -165,7 +182,36 @@ describe('fastify.protect()', () => {
         payload: 'a'.repeat(101),
       });
       expect(res.statusCode).toBe(413);
+      expect(res.json()).toEqual({ error: 'payload_too_large' });
+      expect(res.headers['content-type']).toContain('application/json');
       expect(reached).not.toHaveBeenCalled();
+    });
+
+    it('the 413 handler is scoped: other errors reach the parent error handler', async () => {
+      const craftedai = craftedaiForVectors({ publicUrl: VECTOR_CONFIG.publicUrl });
+      const fastify = Fastify();
+      fastify.setErrorHandler((error, _request, reply) =>
+        reply.code(418).send({ parent: (error as Error).message }),
+      );
+      await fastify.register(async (mcp) => {
+        craftedai.fastify.protect(mcp);
+        mcp.post('/boom', () => {
+          throw new Error('handler failed');
+        });
+      });
+      fastify.post('/outside', () => {
+        throw new Error('outside failed');
+      });
+      const inside = await fastify.inject({
+        method: 'POST',
+        url: '/boom',
+        headers: await mcpHeaders(BODY),
+        payload: BODY,
+      });
+      expect(inside.statusCode).toBe(418);
+      expect(inside.json()).toEqual({ parent: 'handler failed' });
+      const outside = await fastify.inject({ method: 'POST', url: '/outside' });
+      expect(outside.json()).toEqual({ parent: 'outside failed' });
     });
 
     it('rejects an invalid maxBodyBytes when protect() is called', async () => {

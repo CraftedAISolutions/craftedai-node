@@ -89,7 +89,7 @@ describe('fetch adapter', () => {
 
   describe('a verifier that rejects (review correction 2)', () => {
     it.each(['has', 'recordRequest'] as const)(
-      'answers 500, never runs the handler, never echoes the error (%s down)',
+      'answers 503 with Retry-After, never runs the handler, never echoes the error (%s down)',
       async (method) => {
         const onError = vi.fn();
         const reached = vi.fn(() => new Response('reached'));
@@ -108,13 +108,142 @@ describe('fetch adapter', () => {
           }),
         );
         const text = await res.text();
-        expect(res.status).toBe(500);
+        expect(res.status).toBe(503);
+        expect(res.headers.get('retry-after')).toBe('5');
+        expect(res.headers.get('content-type')).toContain('application/json');
         expect(reached).not.toHaveBeenCalled();
         expect(text).not.toContain('hunter2');
         expect(text).not.toContain('ECONNREFUSED');
         expect(JSON.parse(text)).toEqual({ error: 'craftedai_verification_unavailable' });
         expect(onError).toHaveBeenCalledOnce();
         expect((onError.mock.calls[0]?.[0] as Error).message).toBe(OUTAGE_MESSAGE);
+      },
+    );
+  });
+
+  it('a misconfigured client (CraftedAIError config_*) stays a 500, without Retry-After', async () => {
+    const onError = vi.fn();
+    const craftedai = craftedaiForVectors({
+      replayStore: failingReplayStore('has', new CraftedAIError('config_invalid', 'bad store')),
+      onError,
+    });
+    const res = await craftedai.fetch.verifyRequest(() => new Response('never'))(
+      new Request(VECTOR_CONFIG.publicUrl, {
+        method: 'POST',
+        headers: { 'x-craftedai-request': await signRequest({ body: BODY }) },
+        body: BODY,
+      }),
+    );
+    expect(res.status).toBe(500);
+    expect(res.headers.get('retry-after')).toBeNull();
+    expect(onError).toHaveBeenCalledOnce();
+  });
+
+  describe('an already-read body (fix round 1)', () => {
+    it('answers 401 body_mismatch with a fetch hint, no onError, handler not called', async () => {
+      const onError = vi.fn();
+      const reached = vi.fn(() => new Response('reached'));
+      const craftedai = craftedaiForVectors({ onError });
+      const request = new Request(VECTOR_CONFIG.publicUrl, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-craftedai-request': await signRequest({ body: BODY }),
+        },
+        body: BODY,
+      });
+      await request.json();
+      const res = await craftedai.fetch.verifyRequest(reached)(request);
+      expect(res.status).toBe(401);
+      const body = (await res.json()) as { reason: string; message: string };
+      expect(body.reason).toBe('body_mismatch');
+      expect(body.message).toContain('c.req.raw before c.req.json()');
+      expect(reached).not.toHaveBeenCalled();
+      expect(onError).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('body cap (fix round 1)', () => {
+    const MIB = 1024 * 1024;
+    const never = () => new Response('reached');
+    const streamOf = (...sizes: number[]) =>
+      new ReadableStream<Uint8Array>({
+        start(controller) {
+          for (const size of sizes) controller.enqueue(new Uint8Array(size).fill(97));
+          controller.close();
+        },
+      });
+    const post = (body: BodyInit, headers: Record<string, string> = {}) =>
+      new Request(VECTOR_CONFIG.publicUrl, {
+        method: 'POST',
+        headers: { 'content-type': 'text/plain', ...headers },
+        body,
+        duplex: 'half',
+      } as RequestInit);
+
+    it('defaults to 1 MiB: one byte over is 413 with the shared JSON body', async () => {
+      const handler = craftedaiForVectors().fetch.verifyRequest(never);
+      const res = await handler(post('a'.repeat(MIB + 1)));
+      expect(res.status).toBe(413);
+      expect(res.headers.get('content-type')).toContain('application/json');
+      expect(await res.json()).toEqual({ error: 'payload_too_large' });
+      // exactly 1 MiB is read (and then fails verification, not the cap)
+      expect((await handler(post('a'.repeat(MIB)))).status).toBe(401);
+    });
+
+    it('admits a body of exactly maxBodyBytes and refuses one more byte', async () => {
+      const handler = craftedaiForVectors().fetch.verifyRequest(never, { maxBodyBytes: 100 });
+      const exact = 'a'.repeat(100);
+      const ok = await handler(
+        post(exact, { 'x-craftedai-request': await signRequest({ body: exact }) }),
+      );
+      expect(ok.status).toBe(200);
+      expect((await handler(post('a'.repeat(101)))).status).toBe(413);
+    });
+
+    it('a declared Content-Length of exactly maxBodyBytes is admitted', async () => {
+      const handler = craftedaiForVectors().fetch.verifyRequest(never, { maxBodyBytes: 100 });
+      const exact = 'a'.repeat(100);
+      const res = await handler(
+        post(exact, {
+          'content-length': '100',
+          'x-craftedai-request': await signRequest({ body: exact }),
+        }),
+      );
+      expect(res.status).toBe(200);
+    });
+
+    it('refuses on the declared Content-Length alone, even if the actual body is small', async () => {
+      const handler = craftedaiForVectors().fetch.verifyRequest(never, { maxBodyBytes: 100 });
+      const res = await handler(post('tiny', { 'content-length': '101' }));
+      expect(res.status).toBe(413);
+    });
+
+    it('counts streamed bytes when there is no Content-Length', async () => {
+      const handler = craftedaiForVectors().fetch.verifyRequest(never, { maxBodyBytes: 100 });
+      expect((await handler(post(streamOf(60, 60)))).status).toBe(413);
+      const exact = 'a'.repeat(100);
+      const ok = await handler(
+        post(streamOf(60, 40), { 'x-craftedai-request': await signRequest({ body: exact }) }),
+      );
+      expect(ok.status).toBe(200);
+    });
+
+    it('does not report the 413 to onError', async () => {
+      const onError = vi.fn();
+      const handler = craftedaiForVectors({ onError }).fetch.verifyRequest(never, {
+        maxBodyBytes: 10,
+      });
+      expect((await handler(post('a'.repeat(11)))).status).toBe(413);
+      expect(onError).not.toHaveBeenCalled();
+    });
+
+    it.each([0, -1, 1.5, Number.NaN])(
+      'rejects maxBodyBytes %s when the guard is built',
+      (value) => {
+        expect(() =>
+          craftedaiForVectors().fetch.verifyRequest(never, { maxBodyBytes: value }),
+        ).toThrow(expect.objectContaining({ code: 'config_invalid' }) as Error);
       },
     );
   });
