@@ -37,8 +37,9 @@ export function detectFramework(packageJson: unknown): Framework {
 const SESSION_PATH = '/craftedai/session';
 
 const PUBLIC_URL_NOTE =
-  '// publicUrl: the MCP URL exactly as registered in CraftedAI. Set it (or CRAFTEDAI_PUBLIC_URL) behind\n' +
-  '// a proxy or load balancer, where this server sees an internal URL instead.';
+  "// publicUrl is optional: the guard derives this server's URL per request. Behind a proxy or load balancer\n" +
+  '// it would see an internal URL, so set CRAFTEDAI_PUBLIC_URL to the MCP URL exactly as registered in\n' +
+  "// CraftedAI, or pass the option: publicUrl: 'https://your-host.example/mcp' (an example, not a default).";
 
 const CSP_NOTE =
   '// CSP: merge craftedai.cspDirectiveString() into your Content-Security-Policy (the widget needs it).';
@@ -59,7 +60,7 @@ const app = express();
 
 // MCP server: mount the guard BEFORE express.json() or any other body parser.
 // On success req.craftedai = { orgId, user, delegated }.
-app.post('/mcp', craftedai.express.verifyRequest({ publicUrl: 'https://your-host.example/mcp' }), mcpHandler);
+app.post('/mcp', craftedai.express.verifyRequest(), mcpHandler);
 ${PUBLIC_URL_NOTE}
 
 app.use(express.json());
@@ -81,7 +82,7 @@ app.post('${SESSION_PATH}', craftedai.fastify.sessionHandler({ getUser: (request
 // keeps the exact bytes, so the guard sees the body before any parser of yours. Never call protect()
 // on the root instance.
 await app.register(async (mcp) => {
-  craftedai.fastify.protect(mcp, { publicUrl: 'https://your-host.example/mcp' });
+  craftedai.fastify.protect(mcp);
   mcp.post('/mcp', async (request, reply) => {
     const context = craftedai.fastify.context(request); // { orgId, user, delegated }
     return mcpHandler(request, reply, context);
@@ -101,7 +102,6 @@ export const POST = craftedai.fetch.sessionHandler({
 // app/mcp/route.ts (only if this app also serves your MCP endpoint)
 export const POST = craftedai.fetch.verifyRequest(
   (request, context) => mcpHandler(request, context), // context = { orgId, user, delegated }
-  { publicUrl: 'https://your-host.example/mcp' },
 );
 ${FETCH_NOTES}
 // In next.config.js headers(): { key: 'Content-Security-Policy', value: <your policy + craftedai.cspDirectiveString()> }`;
@@ -115,7 +115,6 @@ const sessionRoute = craftedai.fetch.sessionHandler({
 });
 const mcpRoute = craftedai.fetch.verifyRequest(
   (request, context) => mcpHandler(request, context), // context = { orgId, user, delegated }
-  { publicUrl: 'https://your-host.example/mcp' },
 );
 
 // app/routes/craftedai.session.ts  (POST ${SESSION_PATH})
@@ -132,7 +131,6 @@ const sessionRoute = craftedai.fetch.sessionHandler({
 });
 const mcpRoute = craftedai.fetch.verifyRequest(
   (request, context) => mcpHandler(request, context), // context = { orgId, user, delegated }
-  { publicUrl: 'https://your-host.example/mcp' },
 );
 
 app.post('${SESSION_PATH}', (c) => sessionRoute(c.req.raw));
@@ -148,7 +146,6 @@ const sessionRoute = craftedai.fetch.sessionHandler({
 });
 const mcpRoute = craftedai.fetch.verifyRequest(
   (request, context) => mcpHandler(request, context), // context = { orgId, user, delegated }
-  { publicUrl: 'https://your-host.example/mcp' },
 );
 // Mount sessionRoute at POST ${SESSION_PATH} and mcpRoute at POST /mcp.
 // On a plain node:http server, use Express or Fastify (or convert req to a Request) instead.

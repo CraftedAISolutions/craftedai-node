@@ -50,6 +50,23 @@ describe('routeSnippet', () => {
     },
   );
 
+  it.each(FRAMEWORKS)(
+    '%s: publicUrl is optional, so no live code carries a placeholder URL (it would be wrong_audience)',
+    (fw) => {
+      // Comments are documentation; everything else is what a developer pastes and runs.
+      // `//` inside a string ('https://…') is not a comment: a comment starts at a line start or after whitespace.
+      const code = routeSnippet(fw)
+        .split('\n')
+        .map((line) => line.replace(/(^|\s)\/\/.*$/, ''))
+        .join('\n');
+      expect(code).not.toContain('your-host.example');
+      expect(code).not.toMatch(/https?:\/\//);
+      expect(code).not.toMatch(/publicUrl\s*:/);
+      // The proxy case is still documented, as a comment.
+      expect(routeSnippet(fw)).toMatch(/\/\/[^\n]*publicUrl: 'https:\/\/your-host\.example\/mcp'/);
+    },
+  );
+
   it('express: mounts the guard before any body parser (spec §12.3)', () => {
     const snippet = routeSnippet('express');
     expect(snippet).toContain('craftedai.express.verifyRequest(');
