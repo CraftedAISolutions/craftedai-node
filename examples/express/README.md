@@ -28,8 +28,15 @@ The login is a toy cookie; replace it with your own auth.
   process.
 - **`onError`** receives every error behind a 5xx the library answered for you: a replay store that
   is down (503), a failed session mint (502), a `getUser` that threw. A `CraftedAIError` has a
-  stable `code` and a message that never carries a secret, but an error from your own replay store,
-  `fetch` or `getUser` reaches it as thrown. `server.js` logs only the error's `name` and `code`;
+  stable `code` and a message that never carries a secret, but an error from your own replay store
+  (or the Redis client behind it), `getUser` or `now` reaches it as thrown. The library's own
+  `fetch` is never a raw source: its failures are always wrapped. `server.js` logs only the error's `name` and `code`;
   do the same unless you know your errors are clean.
 - **`zod`** is a required peer dependency of `@modelcontextprotocol/sdk`, so it is in this
   example's `package.json` even though the code does not import it.
+
+## For maintainers
+
+This example depends on the library by `file:../..`, and its lock records the library's version and
+ranges. A release re-locks it (`npm install --package-lock-only` here and in the repository root);
+`test/lockfiles.test.ts` fails the gate when either lock is behind.
