@@ -39,6 +39,8 @@ jobs:
           --health-retries 5
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
@@ -64,6 +66,8 @@ jobs:
         node: ['20.19.0', '22.x', '24.x']
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
@@ -85,12 +89,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/checkout@v4
         with:
           repository: CraftedAISolutions/core-api
-          ref: ${{ inputs.core_api_ref || 'main' }}
+          ref: ${{ inputs.core_api_ref || vars.CORE_API_REF || 'main' }}
           token: ${{ secrets.CORE_API_READ_TOKEN }}
           path: core-api
+          persist-credentials: false
       - name: Byte-compare the copied contract files and vectors
         run: |
           cmp core-api/src/domain/request-signing/request-token-wire.ts test/contract/core-api/request-token-wire.ts
@@ -115,29 +122,34 @@ jobs:
     runs-on: ubuntu-latest
     needs: gate
     timeout-minutes: 25
+    # Fork pull requests never receive secrets: skip rather than fail.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     steps:
       - name: Require CORE_API_READ_TOKEN
         env:
           CORE_API_READ_TOKEN: ${{ secrets.CORE_API_READ_TOKEN }}
         run: |
           if [ -z "$CORE_API_READ_TOKEN" ]; then
-            echo "::error title=CORE_API_READ_TOKEN is not set::Create a fine-grained token (owner CraftedAISolutions, repository core-api only, Contents: read-only) and save it as the repository secret CORE_API_READ_TOKEN. Fork pull requests never receive secrets, so this job cannot run for them."
+            echo "::error title=CORE_API_READ_TOKEN is not set::Create a fine-grained token (owner CraftedAISolutions, repository core-api only, Contents: read-only) and save it as the repository secret CORE_API_READ_TOKEN."
             exit 1
           fi
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/checkout@v4
         with:
           repository: CraftedAISolutions/core-api
           ref: ${{ inputs.core_api_ref || vars.CORE_API_REF || 'main' }}
           token: ${{ secrets.CORE_API_READ_TOKEN }}
           path: core-api
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 24.x
           cache: npm
       - run: npm ci
       - run: npm run build
-      - run: npm install --no-audit --no-fund
+      - run: npm ci
         working-directory: examples/express
       - run: e2e/start-core-api.sh core-api
       - run: npm run test:e2e

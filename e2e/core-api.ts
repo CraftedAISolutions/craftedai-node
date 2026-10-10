@@ -14,6 +14,9 @@ const COMPOSE = [
 
 export const MOCK_PROVIDER_PORT = 9999;
 export const EXAMPLE_PORT = 4000;
+/** Longer than the queue's first retry (5s) and the 10s refresh debounce, shorter than step 2's timeout. */
+const CATALOG_WAIT_MS = 30_000;
+
 export const EXAMPLE_ORIGIN = `http://localhost:${EXAMPLE_PORT}`;
 
 /**
@@ -48,7 +51,7 @@ c.connect().then(() => c.query(process.argv[1])).then(() => c.end());
 async function call<T>(
   method: string,
   path: string,
-  init: { token?: string; orgId?: string; body?: unknown; expect?: number } = {},
+  init: { token?: string; orgId?: string; body?: unknown } = {},
 ): Promise<T> {
   const response = await fetch(`${API}${path}`, {
     method,
@@ -60,7 +63,7 @@ async function call<T>(
     ...(init.body !== undefined ? { body: JSON.stringify(init.body) } : {}),
   });
   const text = await response.text();
-  if (response.status !== (init.expect ?? response.status) || response.status >= 400) {
+  if (response.status >= 400) {
     throw new Error(`${method} ${path} → ${response.status} ${text.slice(0, 300)}`);
   }
   return (text === '' ? undefined : JSON.parse(text)) as T;
@@ -69,6 +72,8 @@ async function call<T>(
 export interface Seeded {
   orgId: string;
   agentId: string;
+  /** A second, fully live agent in the same org: the embed session must not reach it. */
+  otherAgentId: string;
   integrationId: string;
   serverKey: string;
   auth: { token: string; orgId: string };
@@ -152,6 +157,18 @@ export async function seedAgent(): Promise<Seeded> {
       allowedPluginIds: [integration.id],
     },
   });
+  const other = await call<{ id: string }>('POST', '/bots', {
+    ...auth,
+    body: {
+      slug: 'e2e-other',
+      displayName: 'E2E Other',
+      modelSlug: model.id,
+      systemPrompt: 'You are a second agent that no embed session may reach.',
+      allowedPluginIds: [],
+    },
+  });
+  // A bot is publishable only with a credential: this one gets a server key nobody reads.
+  await call('POST', `/organizations/${orgId}/bots/${other.id}/server-key`, auth);
   const key = await call<{ data: { credential: { plaintextKey: string } } }>(
     'POST',
     `/organizations/${orgId}/bots/${bot.id}/server-key`,
@@ -160,6 +177,7 @@ export async function seedAgent(): Promise<Seeded> {
   return {
     orgId,
     agentId: bot.id,
+    otherAgentId: other.id,
     integrationId: integration.id,
     serverKey: key.data.credential.plaintextKey,
     auth,
@@ -168,17 +186,20 @@ export async function seedAgent(): Promise<Seeded> {
 
 /** Phase 2 — with the example MCP running: signed tools/list (catalog), publish, enable embed. */
 export async function goLive(seeded: Seeded): Promise<void> {
-  const { auth, orgId, integrationId, agentId } = seeded;
+  const { auth, orgId, integrationId, agentId, otherAgentId } = seeded;
   // Creating the integration already queued a "register" refresh that failed (the example
   // MCP was not up yet) and retries with backoff; a manual refresh inside the first 10s is
   // a 409 debounce. Either path stamps `catalogRefreshedAt`, and publishing before that is a
   // 409 `mcp_catalog_not_ready`: ask for a refresh until one is accepted, and wait for the stamp.
   const integrationPath = `/organizations/${orgId}/integrations/${integrationId}`;
   let refreshRequested = false;
-  for (let attempt = 0; ; attempt += 1) {
+  const deadline = Date.now() + CATALOG_WAIT_MS;
+  for (;;) {
     const row = await call<{ catalogRefreshedAt: string | null }>('GET', integrationPath, auth);
     if (row.catalogRefreshedAt !== null) break;
-    if (attempt >= 80) throw new Error('the integration catalog was not refreshed in 40s');
+    if (Date.now() > deadline) {
+      throw new Error(`the integration catalog was not refreshed in ${CATALOG_WAIT_MS / 1000}s`);
+    }
     if (!refreshRequested) {
       const refresh = await fetch(`${API}${integrationPath}/refresh`, {
         method: 'POST',
@@ -191,11 +212,15 @@ export async function goLive(seeded: Seeded): Promise<void> {
     }
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
-  await call('PUT', `/control-plane/v1/bots/${agentId}/publication`, auth);
-  await call('PUT', `/control-plane/v1/bots/${agentId}/embed-config`, {
-    ...auth,
-    body: { embedEnabled: true, allowedOrigins: [EXAMPLE_ORIGIN], writeToolDailyLimit: null },
-  });
+  // Both agents are live and embeddable from the example's origin, so a refusal of the other
+  // one can only come from the session's pin to `agentId`.
+  for (const id of [agentId, otherAgentId]) {
+    await call('PUT', `/control-plane/v1/bots/${id}/publication`, auth);
+    await call('PUT', `/control-plane/v1/bots/${id}/embed-config`, {
+      ...auth,
+      body: { embedEnabled: true, allowedOrigins: [EXAMPLE_ORIGIN], writeToolDailyLimit: null },
+    });
+  }
 }
 
 /** What the widget does with a session: boot, open a conversation, run one turn (SSE). */
@@ -233,12 +258,34 @@ export async function widgetTurn(
   return events;
 }
 
-export async function sessionIsLive(sessionToken: string): Promise<number> {
+/** `GET /portal/v1/embed-sessions/current`: the status and, when live, the pinned agent's id. */
+export async function currentSession(
+  sessionToken: string,
+): Promise<{ status: number; agentId: string | null }> {
   const response = await fetch(`${API}/portal/v1/embed-sessions/current`, {
     headers: {
       authorization: `Bearer ${sessionToken}`,
       'x-craftedai-ancestor-origin': EXAMPLE_ORIGIN,
     },
+  });
+  if (response.status !== 200) return { status: response.status, agentId: null };
+  const body = (await response.json()) as { agent?: { id?: string } };
+  return { status: 200, agentId: body.agent?.id ?? null };
+}
+
+/** Tries to open a conversation with `agentId` on a session; answers the status only. */
+export async function openConversationStatus(
+  sessionToken: string,
+  agentId: string,
+): Promise<number> {
+  const response = await fetch(`${API}/portal/v1/conversations`, {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${sessionToken}`,
+      'x-craftedai-ancestor-origin': EXAMPLE_ORIGIN,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({ agentId }),
   });
   return response.status;
 }

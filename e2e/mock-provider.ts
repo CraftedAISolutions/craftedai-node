@@ -81,5 +81,18 @@ export function startMockProvider(port: number): Promise<Server> {
       );
     });
   });
-  return new Promise((resolve) => server.listen(port, '127.0.0.1', () => resolve(server)));
+  // `localhost` may resolve to ::1 or 127.0.0.1 depending on the client: listen dual-stack on the
+  // IPv6 wildcard (loopback-only hosts without IPv6 fall back to IPv4 loopback).
+  const listen = (host: string) =>
+    new Promise<Server>((resolve, reject) => {
+      server.once('error', reject);
+      server.listen(port, host, () => {
+        server.off('error', reject);
+        resolve(server);
+      });
+    });
+  return listen('::').catch((error: NodeJS.ErrnoException) => {
+    if (error.code === 'EAFNOSUPPORT' || error.code === 'EADDRNOTAVAIL') return listen('127.0.0.1');
+    throw error;
+  });
 }
