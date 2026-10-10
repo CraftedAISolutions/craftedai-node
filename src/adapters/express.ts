@@ -142,7 +142,7 @@ export function createExpressAdapter(host: AdapterHost): ExpressAdapter {
         })().catch((error: unknown) => {
           // Fail closed: a verifier that could not decide never lets the request through, and
           // the error is for onError, never the client. A CraftedAIError never carries a secret,
-          // but this may be your own replay store's error, whose message the library does not control.
+          // but this may be an error from your replay store or your `now`, whose message the library does not control.
           host.reportError(error);
           if (res.headersSent) return;
           const status = verificationFailureStatus(error);

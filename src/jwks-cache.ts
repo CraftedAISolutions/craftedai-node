@@ -23,15 +23,14 @@ export interface JwksCacheOptions {
   /** Per-fetch timeout. Default 5 s. */
   timeoutMs?: number;
   /**
-   * @internal
-   * TEST ONLY. The published test-vector keys (`TEST_VECTOR_KIDS`) have private
+   * TEST ONLY (`JwksCache` is not exported from the package, and `CraftedAI` never sets this).
+   * The published test-vector keys (`TEST_VECTOR_KIDS`) have private
    * keys derived from public seeds, so by default the cache refuses to serve
    * them even if the JWKS lists them. Set this only to run the shared vectors.
    */
   allowTestVectorKeys?: boolean;
   /**
-   * @internal
-   * TEST ONLY. Overrides `JWKS_MAX_STALENESS_MS`.
+   * TEST ONLY (never set by `CraftedAI`). Overrides `JWKS_MAX_STALENESS_MS`.
    */
   maxStalenessMs?: number;
 }

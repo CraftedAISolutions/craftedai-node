@@ -411,6 +411,18 @@ describe('spec §12.1 — MCP behind a proxy', () => {
   });
 });
 
+describe('wrong_audience message with a publicUrl set', () => {
+  it('names the token audience and the configured list, not "reached at"', async () => {
+    const { deps } = harness({ publicUrl: ['https://mcp.customer.test/other'] });
+    const result = await verifyRawRequest(req(await signRequest({ body: null }), null), deps);
+    expect(result).toMatchObject({ ok: false, reason: 'wrong_audience' });
+    const message = !result.ok ? (result.message ?? '') : '';
+    expect(message).toContain(`token audience is ${VECTOR_CONFIG.publicUrl}`);
+    expect(message).toContain('publicUrl lists https://mcp.customer.test/other');
+    expect(message).not.toContain('reached at');
+  });
+});
+
 describe('spec §12.2 — clock skew', () => {
   it.each([
     ['clock 60 s behind: tolerated', -60, true],

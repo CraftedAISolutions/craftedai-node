@@ -38,8 +38,10 @@ import { verifyRawRequest, type RawRequest, type VerifyResult } from './verify.j
  * missing `CRAFTEDAI_SECRET_KEY` or `CRAFTEDAI_ORG_ID` (an MCP-only service has no
  * key): each operation checks what it needs and throws `config_missing`.
  *
- * A verifier failure is never swallowed: when the replay store or a supplied
- * dependency throws, `verifyMcpRequest` rejects, so a caller cannot read an outage as a pass.
+ * A verifier failure is never swallowed: when the replay store (or your `now`) throws,
+ * `verifyMcpRequest` rejects, so a caller cannot read an outage as a pass. The adapters answer
+ * 503 `craftedai_verification_unavailable` with `Retry-After: 5` and call `onError`.
+ * A signing-key fetch that fails is not an outage of that kind: it answers `unknown_key`.
  */
 export class CraftedAI {
   readonly config: ResolvedConfig;
@@ -70,7 +72,7 @@ export class CraftedAI {
     });
     // The adapters get bound closures, never the client: they cannot reach the integrator's objects.
     const host = createAdapterHost({
-      verifyRaw: (request, publicUrl) => this.verifyRaw(request, publicUrl),
+      verifyRaw: (request, publicUrl) => this.#verifyRaw(request, publicUrl),
       verifyMcpRequest: (request, verifyOptions) => this.verifyMcpRequest(request, verifyOptions),
       createSession: (input) => this.createSession(input),
       onError: options.onError ?? (() => undefined),
@@ -130,7 +132,7 @@ export class CraftedAI {
         `the request body is over the ${String(maxBodyBytes)}-byte limit`,
       );
     }
-    return this.verifyRaw(
+    return this.#verifyRaw(
       {
         method: request.method,
         url: stripQuery(request.url),
@@ -141,8 +143,8 @@ export class CraftedAI {
     );
   }
 
-  /** @internal Adapters call this with the bytes they read. */
-  async verifyRaw(
+  /** Adapter plumbing, deliberately `#private`: it is not part of the public API. */
+  async #verifyRaw(
     request: RawRequest,
     publicUrl?: string | readonly string[],
   ): Promise<VerifyResult> {

@@ -76,13 +76,16 @@ export interface VerifierDeps {
   /** Configured API origin, no trailing slash: the only accepted `iss`. */
   apiOrigin: string;
   orgId: string;
-  /** Needed only when a request carries `act` and `requireDelegation` is on. */
+  /**
+   * Required while `requireDelegation` is on: `CraftedAI` refuses to be built without it, so the
+   * `undefined` branch below only guards a direct call to `verifyRawRequest`.
+   */
   appSecret: string | undefined;
   /** `CRAFTEDAI_APP_SECRET_PREVIOUS`: also accepted for delegations during a rotation. Verify only. */
   previousAppSecret?: string | undefined;
   requireDelegation: boolean;
   delegationCallLimit: number;
-  /** The URL(s) core-api has stored for this MCP; default: derived from the request. */
+  /** The URL(s) core-api has stored for this MCP (`aud`); default: derived from the request. */
   publicUrl: readonly string[] | undefined;
   jwks: JwksCache;
   replay: ReplayStore;
@@ -163,7 +166,9 @@ export async function verifyRawRequest(
   const claims = parseRequestTokenClaims(rawClaims);
   if (claims === null) return fail('bad_signature');
 
-  // Issuer, org pin, audience (an exact string compare: no URL normalisation).
+  // Issuer, org pin, audience. The audience is an exact string compare: the shared vectors
+  // (`wrong_audience_uppercase_host`, `wrong_audience_explicit_default_port`) pin that a host
+  // written in capitals or with an explicit default port is NOT the registered URL.
   if (claims.iss !== deps.apiOrigin) {
     return fail(
       'wrong_issuer',
@@ -180,7 +185,9 @@ export async function verifyRawRequest(
   if (!accepted.includes(claims.aud)) {
     return fail(
       'wrong_audience',
-      `token audience is ${claims.aud} but this server is reached at ${accepted.join(', ')}; set publicUrl (or CRAFTEDAI_PUBLIC_URL) to the URL registered in CraftedAI`,
+      deps.publicUrl === undefined
+        ? `token audience is ${claims.aud} but this server is reached at ${accepted.join(', ')}; set publicUrl (or CRAFTEDAI_PUBLIC_URL) to the URL registered in CraftedAI`
+        : `token audience is ${claims.aud} but publicUrl lists ${accepted.join(', ')}; it must include the URL registered in CraftedAI (every path it calls, for example both an SSE and a messages path)`,
     );
   }
 

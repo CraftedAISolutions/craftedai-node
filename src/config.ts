@@ -45,11 +45,21 @@ export interface CraftedAIOptions {
   /** Default: in-memory LRU (single instance). Use `redisReplayStore(client)` when running several. */
   replayStore?: ReplayStore;
   /**
-   * Called with every error a framework adapter turns into a response. A `CraftedAIError` (stable
-   * `code`) never carries a secret; an error thrown by your own replay store, `fetch` or `getUser`
-   * reaches it as thrown, so when in doubt log `name` and `code` only, not `message`.
+   * Called with every error a framework adapter turns into a 5xx: a verification that could not
+   * decide (replay store down, 503), a session route that failed (a failed mint, 502; a `getUser`
+   * that threw, 500). The mint outcomes that are the integrator's to fix, such as an unknown agent,
+   * are answered without it. A `CraftedAIError` (stable `code`) never carries a secret.
+   *
+   * Three sources reach it exactly as thrown, so their messages are not under this library's
+   * control: your replay store (including the Redis client errors `redisReplayStore` passes
+   * through), your `getUser`, and your `now`. A request stream that failed while its body was
+   * read (a client that disconnected) arrives as a plain `Error`. `fetch` is not a source: a
+   * failed or malformed response is always wrapped into a `CraftedAIError` (`api_unavailable`) or,
+   * for the signing keys, swallowed into the `unknown_key` reason. When in doubt log `name` and
+   * `code`, not `message`.
    */
   onError?: (error: unknown) => void;
+  /** Default global `fetch`. Used for the mint, the revoke and the signing-key fetch. */
   fetch?: typeof fetch;
   /** Unix milliseconds; test seam. */
   now?: () => number;

@@ -70,8 +70,8 @@ export function createFetchAdapter(host: AdapterHost): FetchAdapter {
           verified = await host.verifyMcpRequest(request, options);
         } catch (error) {
           // Fail closed: the error goes to onError, never to the client, and the handler is not
-          // called. A CraftedAIError never carries a secret, but this may be your own replay
-          // store's error, whose message the library does not control.
+          // called. A CraftedAIError never carries a secret, but this may be an error from your replay
+          // store or your `now`, whose message the library does not control.
           if (error instanceof CraftedAIError && error.code === 'payload_too_large') {
             return json(413, { error: 'payload_too_large' });
           }
