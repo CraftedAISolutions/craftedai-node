@@ -35,11 +35,12 @@ async function waitFor(url: string, child: ChildProcess): Promise<void> {
     // A port already taken (or a crash on boot) must read as that, not as a 10s wait.
     if (child.exitCode !== null) throw new Error(`the example exited with code ${child.exitCode}`);
     try {
-      await fetch(url);
-      return;
+      // Only the example answers this route (e2e mode): another process on the port would 404.
+      if ((await fetch(url)).ok) return;
     } catch {
-      await new Promise((r) => setTimeout(r, 200));
+      // not listening yet
     }
+    await new Promise((r) => setTimeout(r, 200));
   }
   throw new Error(`${url} did not come up`);
 }
@@ -122,7 +123,7 @@ describe('onboarding end to end (spec §11)', () => {
       },
       stdio: 'inherit',
     });
-    await waitFor(`${EXAMPLE_ORIGIN}/`, example);
+    await waitFor(`${EXAMPLE_ORIGIN}/__e2e/mcp-calls`, example);
     await goLive(seeded);
     const calls = await mcpCalls();
     expect(calls.some((c) => c.method === 'tools/list')).toBe(true);
