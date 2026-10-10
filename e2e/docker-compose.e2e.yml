@@ -1,0 +1,18 @@
+# Overlay on core-api's own docker-compose.yml for the @craftedai/node e2e.
+# api + worker join the HOST network so core-api reaches the example MCP and the
+# mock model provider at http://localhost:<port> — core-api accepts cleartext
+# MCP endpoints only on loopback. Linux (GitHub runners) only.
+services:
+  api:
+    network_mode: host
+    ports: !reset []
+    environment: &e2e-env
+      DATABASE_URL: postgres://craftedai:craftedai@localhost:5433/craftedai
+      PORTAL_EXECUTOR_DATABASE_URL: postgres://craftedai:craftedai@localhost:5433/craftedai
+      REDIS_URL: redis://localhost:6380
+      API_PUBLIC_ORIGIN: http://localhost:3000
+      EMBED_SIGNING_KEYS: ${EMBED_SIGNING_KEYS:?run e2e/start-core-api.sh}
+      WHATSAPP_PUBLIC_WEBHOOK_URL: http://localhost:3000
+  worker:
+    network_mode: host
+    environment: *e2e-env
