@@ -11,6 +11,9 @@
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "bin": {
+    "craftedai": "./dist/cli.js"
+  },
   "exports": {
     ".": {
       "import": {
@@ -30,6 +33,7 @@
     "LICENSE"
   ],
   "scripts": {
+    "prebuild": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
     "build": "tsup",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",

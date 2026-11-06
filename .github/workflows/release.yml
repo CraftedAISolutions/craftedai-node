@@ -1,0 +1,124 @@
+name: release
+
+# Publishes @craftedai/node to npm, with provenance, when a version tag is pushed:
+#
+#   1. bump "version" in package.json and run `npm install --package-lock-only` in the repository
+#      root and in examples/express (the lockfile test in `npm test` fails the release otherwise),
+#      merge to main;
+#   2. `git tag v<version> && git push origin v<version>` from an up-to-date main;
+#   3. a reviewer approves the `npm` environment deployment in the Actions run.
+#
+# One-time setup (founder): the @craftedai npm org, a granular npm token limited to that scope
+# saved as the secret NPM_TOKEN in the GitHub environment `npm` (with a required reviewer).
+# The publish job fails with a clear message when NPM_TOKEN is missing.
+
+on:
+  push:
+    tags: ['v*']
+
+# No job gets more than it asks for below.
+permissions: {}
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: gate and pack
+    # Only a version tag releases; the trigger already says so, and so does this.
+    if: github.ref_type == 'tag' && startsWith(github.ref_name, 'v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # the tagged commit is checked against main
+          persist-credentials: false
+      - name: Tag equals the package.json version
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          if [ "v${version}" != "${TAG}" ]; then
+            echo "::error title=Tag does not match package.json::The tag is ${TAG} but package.json says version ${version}. Delete the tag, fix the version, tag again."
+            exit 1
+          fi
+      - name: Tagged commit is on main
+        env:
+          SHA: ${{ github.sha }}
+        run: |
+          if ! git merge-base --is-ancestor "${SHA}" origin/main; then
+            echo "::error title=Tag is not on main::Tag a commit that is already merged to main."
+            exit 1
+          fi
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.x
+      - run: npm ci
+      - run: npm run format:check
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test
+      - run: npm run build
+      - name: Package exports resolve for ESM and CJS consumers
+        run: |
+          npx publint --strict
+          npx attw --pack .
+          node -e "require('./dist/index.cjs')"
+          node --input-type=module -e "await import('./dist/index.js')"
+      # The tarball published below is the one built and tested here.
+      - run: npm pack --pack-destination release
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: package
+          path: release/*.tgz
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: publish to npm
+    needs: verify
+    if: github.ref_type == 'tag' && startsWith(github.ref_name, 'v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Holds NPM_TOKEN; a reviewer must approve the deployment.
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write # npm provenance (a Sigstore attestation of this workflow run)
+    steps:
+      - name: Require NPM_TOKEN
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -z "${NPM_TOKEN}" ]; then
+            echo "::error title=NPM_TOKEN is not set::Save an npm granular access token (read and write, limited to the @craftedai scope) as the secret NPM_TOKEN in the GitHub environment named npm, then re-run this job."
+            exit 1
+          fi
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.x
+          registry-url: https://registry.npmjs.org
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: package
+          path: release
+      - name: Publish with provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          tarball="$(ls release/*.tgz)"
+          version="$(tar -xzOf "${tarball}" package/package.json | node -p "JSON.parse(require('fs').readFileSync(0, 'utf8')).version")"
+          if [ "v${version}" != "${TAG}" ]; then
+            echo "::error title=Tarball does not match the tag::The tarball is version ${version}, the tag is ${TAG}."
+            exit 1
+          fi
+          # npm refuses a prerelease without an explicit dist-tag; it must never become "latest".
+          dist_tag=latest
+          case "${version}" in *-*) dist_tag=next ;; esac
+          npm publish "${tarball}" --provenance --access public --tag "${dist_tag}"

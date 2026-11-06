@@ -1,0 +1,36 @@
+# Overlay on core-api's own docker-compose.yml for the @craftedai/node e2e.
+# api + worker join the HOST network so core-api reaches the example MCP and the
+# mock model provider at http://localhost:<port> — core-api accepts cleartext
+# MCP endpoints only on loopback. Linux (GitHub runners) only.
+# It runs as its own compose project, so it never touches a core-api dev stack (project
+# `craftedai`) on the same host. Ports default to 5433/6380 as in CI; on a host already running
+# that stack, set E2E_POSTGRES_PORT=5434 E2E_REDIS_PORT=6381.
+name: craftedai-node-e2e
+services:
+  postgres:
+    container_name: craftedai-node-e2e-postgres
+    ports: !override
+      - '${E2E_POSTGRES_PORT:-5433}:5432'
+  redis:
+    container_name: craftedai-node-e2e-redis
+    ports: !override
+      - '${E2E_REDIS_PORT:-6380}:6379'
+  api:
+    container_name: craftedai-node-e2e-api
+    network_mode: host
+    ports: !reset []
+    environment: &e2e-env
+      # Pinned, not inherited: the egress guard admits loopback MCP endpoints only outside
+      # production (core-api CRA-373), and production refuses allow_loopback at boot.
+      NODE_ENV: development
+      MCP_EGRESS_POLICY: allow_loopback
+      DATABASE_URL: postgres://craftedai:craftedai@localhost:${E2E_POSTGRES_PORT:-5433}/craftedai
+      PORTAL_EXECUTOR_DATABASE_URL: postgres://craftedai:craftedai@localhost:${E2E_POSTGRES_PORT:-5433}/craftedai
+      REDIS_URL: redis://localhost:${E2E_REDIS_PORT:-6380}
+      API_PUBLIC_ORIGIN: http://localhost:3000
+      EMBED_SIGNING_KEYS: ${EMBED_SIGNING_KEYS:?run e2e/start-core-api.sh}
+      WHATSAPP_PUBLIC_WEBHOOK_URL: http://localhost:3000
+  worker:
+    container_name: craftedai-node-e2e-worker
+    network_mode: host
+    environment: *e2e-env

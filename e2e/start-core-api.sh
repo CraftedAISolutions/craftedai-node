@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# Starts core-api (postgres, redis, api, worker) from a core-api checkout for the e2e.
+# Usage: e2e/start-core-api.sh <path-to-core-api-checkout>
+#
+# Local run (the e2e is its own compose project, `craftedai-node-e2e`):
+#   - set E2E_POSTGRES_PORT / E2E_REDIS_PORT when ports 5433 / 6380 are taken;
+#   - point GITHUB_ENV at a scratch file, then export EMBED_SIGNING_KEYS from it before
+#     `npm run test:e2e`, because compose needs it to parse the overlay;
+#   - tear down with
+#     EMBED_SIGNING_KEYS='[]' docker compose -f <core-api>/docker-compose.yml \
+#       -f e2e/docker-compose.e2e.yml --project-directory <core-api> down -v --remove-orphans --rmi local
+set -euo pipefail
+CORE_API_DIR="$(cd "$1" && pwd)"
+OVERLAY="$(cd "$(dirname "$0")" && pwd)/docker-compose.e2e.yml"
+compose() { docker compose -f "$CORE_API_DIR/docker-compose.yml" -f "$OVERLAY" --project-directory "$CORE_API_DIR" "$@"; }
+
+# A throwaway Ed25519 key ring for this run only (core-api Task 3 generator). The generator
+# prints the key entry on stdout only (captured here); stderr carries a usage hint, never the key.
+export EMBED_SIGNING_KEYS='[]' # placeholder so compose can parse the overlay while building
+compose build api
+ENTRY="$(compose run --rm --no-deps -T api npm run -s signing-key:generate)"
+EMBED_SIGNING_KEYS="[$(echo "$ENTRY" | jq -c '.status = "current"')]"
+export EMBED_SIGNING_KEYS
+# Keep the private key out of any CI log line (only under GitHub Actions).
+if [ "${GITHUB_ACTIONS:-}" = true ]; then echo "::add-mask::$(echo "$ENTRY" | jq -r '.privateJwk.d')"; fi
+echo "EMBED_SIGNING_KEYS=$EMBED_SIGNING_KEYS" >> "${GITHUB_ENV:-/dev/null}"
+
+compose up -d --wait postgres redis
+compose up -d api worker
+for _ in $(seq 1 60); do
+  curl -fsS --max-time 5 http://localhost:3000/health >/dev/null 2>&1 && break
+  sleep 2
+done
+curl -fsS --max-time 5 http://localhost:3000/health
+compose exec -T api npm run migration:run
+compose exec -T api npm run seed:catalog
+curl -fsS --max-time 5 http://localhost:3000/.well-known/jwks.json | jq -e '.keys | length == 1'
