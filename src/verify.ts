@@ -194,8 +194,8 @@ export async function verifyRawRequest(
     return fail(
       'wrong_audience',
       deps.publicUrl === undefined
-        ? `token audience is ${claims.aud} but this server is reached at ${accepted.join(', ')}; set publicUrl (or CRAFTEDAI_PUBLIC_URL) to the URL registered in CraftedAI`
-        : `token audience is ${claims.aud} but publicUrl lists ${accepted.join(', ')}; it must include the URL registered in CraftedAI (every path it calls, for example both an SSE and a messages path)`,
+        ? `token audience is ${claims.aud} but this server is reached at ${accepted.join(', ')}; set publicUrl (or CRAFTEDAI_PUBLIC_URL) to the token audience above (the URL CraftedAI calls: lower-case host, no default port, no query)`
+        : `token audience is ${claims.aud} but publicUrl lists ${accepted.join(', ')}; it must include the token audience above (the URL CraftedAI calls: lower-case host, no default port, no query; every path it calls, for example both an SSE and a messages path)`,
     );
   }
 

@@ -152,27 +152,27 @@ fetch; Fastify applies its own body limit), `502 session_unavailable` when the m
 Every rejection is `401 { "error": "craftedai_verification_failed", "reason": "...", "message"?: "..." }`.
 The "Connect your app" checklist shows the same reason.
 
-| reason                                     | usual cause                                                                                                                                           |
-| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `wrong_audience`                           | Behind a proxy or load balancer the server sees an internal URL. Set `publicUrl` (or `CRAFTEDAI_PUBLIC_URL`) to the MCP URL you entered in CraftedAI. |
-| `body_mismatch`                            | A body parser ran before the guard, or a proxy changed the body. Mount the guard first.                                                               |
-| `expired`                                  | This server's clock is more than 60 s off. Sync it (NTP).                                                                                             |
-| `wrong_org`                                | Another CraftedAI workspace is pointed at this URL, or `CRAFTEDAI_ORG_ID` is wrong.                                                                   |
-| `wrong_issuer`                             | Staging vs production: set `CRAFTEDAI_API_ORIGIN` (see [Staging](#staging-or-a-local-craftedai)).                                                     |
-| `unknown_key`                              | The CraftedAI signing keys could not be fetched, or the token was signed by a key we never published.                                                 |
-| `replayed`                                 | The same request arrived twice. With several instances, use the Redis store below.                                                                    |
-| `delegation_missing`, `delegation_invalid` | The web app and the MCP disagree on `CRAFTEDAI_APP_SECRET`, or the delegation expired (it lives 300 s), or its `iat` is more than 60 s ahead.         |
-| `delegation_user_mismatch`                 | The delegation was minted for another user.                                                                                                           |
-| `delegation_exhausted`                     | 20 tool calls on one delegation (`delegationCallLimit`).                                                                                              |
-| `missing_token`, `bad_signature`           | The request did not come from CraftedAI.                                                                                                              |
+| reason                                     | usual cause                                                                                                                                                                                               |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `wrong_audience`                           | Behind a proxy or load balancer the server sees an internal URL. Set `publicUrl` (or `CRAFTEDAI_PUBLIC_URL`) to the token audience (the URL CraftedAI calls: lower-case host, no default port, no query). |
+| `body_mismatch`                            | A body parser ran before the guard, or a proxy changed the body. Mount the guard first.                                                                                                                   |
+| `expired`                                  | This server's clock is more than 60 s off. Sync it (NTP).                                                                                                                                                 |
+| `wrong_org`                                | Another CraftedAI workspace is pointed at this URL, or `CRAFTEDAI_ORG_ID` is wrong.                                                                                                                       |
+| `wrong_issuer`                             | Staging vs production: set `CRAFTEDAI_API_ORIGIN` (see [Staging](#staging-or-a-local-craftedai)).                                                                                                         |
+| `unknown_key`                              | The CraftedAI signing keys could not be fetched, or the token was signed by a key we never published.                                                                                                     |
+| `replayed`                                 | The same request arrived twice. With several instances, use the Redis store below.                                                                                                                        |
+| `delegation_missing`, `delegation_invalid` | The web app and the MCP disagree on `CRAFTEDAI_APP_SECRET`, or the delegation expired (it lives 300 s), or its `iat` is more than 60 s ahead.                                                             |
+| `delegation_user_mismatch`                 | The delegation was minted for another user.                                                                                                                                                               |
+| `delegation_exhausted`                     | 20 tool calls on one delegation (`delegationCallLimit`).                                                                                                                                                  |
+| `missing_token`, `bad_signature`           | The request did not come from CraftedAI.                                                                                                                                                                  |
 
 ### Proxies and `publicUrl`
 
 The token's audience (`aud`) is the exact URL CraftedAI calls, and the guard compares it with the
 URL of each request as the framework reports it (scheme, host and path, without the query).
 `X-Forwarded-*` and `Forwarded` are never read, so behind a proxy or load balancer, and on fetch
-hosts that build `request.url` from forwarded headers, set `publicUrl` to the URL registered in
-CraftedAI:
+hosts that build `request.url` from forwarded headers, set `publicUrl` to the URL CraftedAI calls
+(the token audience):
 
 ```ts
 new CraftedAI({ publicUrl: 'https://mcp.example.com/mcp' }); // or CRAFTEDAI_PUBLIC_URL
