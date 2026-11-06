@@ -106,8 +106,9 @@ export class CraftedAI {
   /**
    * Verify a signed MCP request (spec §5.2) from a fetch `Request`. Reads the
    * body from a clone, so the original stays readable for your handler. The audience is
-   * `request.url` without its query string or fragment (core-api's `aud` is the stored
-   * endpoint URL); `X-Forwarded-*` is never read, so behind a proxy pass `publicUrl`.
+   * `request.url` without its query string or fragment (core-api's `aud` is the normalized
+   * URL it sends the request to); `X-Forwarded-*` is never read, so behind a proxy pass
+   * `publicUrl`.
    *
    * The body is read up to `maxBodyBytes` (default 1 MiB), a declared `Content-Length` over the
    * cap first, then the streamed bytes. Past the cap it rejects with

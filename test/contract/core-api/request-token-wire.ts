@@ -105,7 +105,12 @@ export const RequestTokenClaimsSchema = z
   .object({
     /** Exactly the configured API origin, e.g. `https://api.craftedai.co`. No trailing slash. */
     iss: z.string().url(),
-    /** The integration's endpoint URL exactly as stored in core-api. */
+    /**
+     * Scheme + host + path of the URL this request is sent to, WHATWG-normalized: lower-case host,
+     * default port dropped (`:443` on https, `:80` on http), bare origin becomes `/`, no query or
+     * fragment. Not the stored endpoint string; on http-sse the POSTs carry the server-announced
+     * messages URL.
+     */
     aud: z.string().url(),
     /** The CraftedAI organization id (`CRAFTEDAI_ORG_ID`). */
     sub: z.string().min(1).max(128),

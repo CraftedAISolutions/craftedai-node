@@ -69,6 +69,18 @@ export function isAllowedHostOrigin(origin: string): boolean {
 }
 
 /**
+ * Per-agent framing policy (CRA-351 Task 18, gap UG1). chat-ui's nginx asks
+ * `GET /embed/v1/frame-ancestors?agent=<id>` before serving `/embed?agent=<id>`
+ * and copies the answer into `Content-Security-Policy: frame-ancestors`. The
+ * value is a CSP source list: canonical origins joined by one space, or
+ * `'none'`. chat-ui quotes these names byte for byte.
+ */
+export const EMBED_FRAME_ANCESTORS_PATH = '/embed/v1/frame-ancestors';
+export const EMBED_FRAME_ANCESTORS_HEADER = 'x-craftedai-frame-ancestors';
+export const EMBED_FRAME_ANCESTORS_MAX_AGE_SECONDS = 60;
+export const FRAME_ANCESTORS_NONE = "'none'";
+
+/**
  * Every code an embed widget or partner backend must branch on. See the
  * status/route/action table on the response schemas in
  * `src/api/controllers/embed/embed-session-schemas.ts`.

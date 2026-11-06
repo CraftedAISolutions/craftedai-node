@@ -38,8 +38,8 @@ const SESSION_PATH = '/craftedai/session';
 
 const PUBLIC_URL_NOTE =
   "// publicUrl is optional: the guard derives this server's URL per request. Behind a proxy or load balancer\n" +
-  '// it would see an internal URL, so set CRAFTEDAI_PUBLIC_URL to the MCP URL exactly as registered in\n' +
-  "// CraftedAI, or pass the option: publicUrl: 'https://your-host.example/mcp' (an example, not a default).";
+  '// it would see an internal URL, so set CRAFTEDAI_PUBLIC_URL to the MCP URL CraftedAI calls (lower-case host,\n' +
+  "// no default port), or pass the option: publicUrl: 'https://your-host.example/mcp' (an example, not a default).";
 
 const CSP_NOTE =
   '// CSP: merge craftedai.cspDirectiveString() into your Content-Security-Policy (the widget needs it).';

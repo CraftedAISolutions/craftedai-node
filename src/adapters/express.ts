@@ -51,7 +51,7 @@ export type ExpressLikeHandler = (
 ) => void;
 
 export interface ExpressVerifyOptions {
-  /** The MCP URL(s) exactly as registered in CraftedAI. Set it behind a proxy (spec §12.1). */
+  /** The MCP URL(s) as CraftedAI signs them (`aud`); set it behind a proxy (spec §12.1). */
   publicUrl?: string | readonly string[];
   /** Largest request body the guard buffers; larger is answered 413. Default 1 MiB. */
   maxBodyBytes?: number;

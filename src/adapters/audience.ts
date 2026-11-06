@@ -7,8 +7,9 @@ export const SESSION_BODY_MAX_BYTES = 16 * 1024;
 
 /**
  * The audience URL is `protocol://host/path` exactly as the framework sees the request, with
- * NO query string and NO fragment: core-api's `aud` is the endpoint URL stored for the MCP,
- * which has neither. The verifier compares it with the token's `aud`
+ * NO query string and NO fragment: core-api's `aud` is the URL it sends each request to,
+ * WHATWG-normalized (lower-case host, no default port, `/` for a bare origin, no query or
+ * fragment; core-api `request-token-wire.ts`). The verifier compares it with the token's `aud`
  * as an exact string (the shared test vectors pin that: capitals in the host or an explicit
  * default port do not match). `X-Forwarded-*` and `Forwarded` are never read by the adapters; a server
  * behind a proxy sets `publicUrl` (or Express's `trust proxy` / Fastify's `trustProxy`, which

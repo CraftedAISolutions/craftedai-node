@@ -178,12 +178,13 @@ CraftedAI:
 new CraftedAI({ publicUrl: 'https://mcp.example.com/mcp' }); // or CRAFTEDAI_PUBLIC_URL
 ```
 
-The compare is an exact string compare: write the URL as registered (lower-case host, no default
-port such as `:443`, no query). One URL can have several forms, so `publicUrl` also takes a list
-(or a comma-separated `CRAFTEDAI_PUBLIC_URL`). A server using the older SSE transport is called on
-two URLs, the event stream and the messages endpoint; list both. Express's `trust proxy` and
-Fastify's `trustProxy` change what the framework reports and are honoured, but only through the
-framework.
+The compare is an exact string compare against the URL as CraftedAI signs it: lower-case host,
+no default port, `/` after a bare origin, no query or fragment (an MCP registered as
+`https://MCP.example.com:443` is signed as `https://mcp.example.com/`). `publicUrl` also takes a
+list (or a comma-separated `CRAFTEDAI_PUBLIC_URL`). A server using the older SSE transport is
+called on two URLs, the event stream and the messages endpoint; list both. Express's `trust proxy`
+and Fastify's `trustProxy` change what the framework reports and are honoured, but only through
+the framework.
 
 ## Several instances
 

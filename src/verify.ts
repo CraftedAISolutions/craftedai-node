@@ -85,7 +85,7 @@ export interface VerifierDeps {
   previousAppSecret?: string | undefined;
   requireDelegation: boolean;
   delegationCallLimit: number;
-  /** The URL(s) core-api has stored for this MCP (`aud`); default: derived from the request. */
+  /** The URL(s) core-api sends this MCP's requests to (`aud`); default: derived from the request. */
   publicUrl: readonly string[] | undefined;
   jwks: JwksCache;
   replay: ReplayStore;
@@ -168,7 +168,7 @@ export async function verifyRawRequest(
 
   // Issuer, org pin, audience. The audience is an exact string compare: the shared vectors
   // (`wrong_audience_uppercase_host`, `wrong_audience_explicit_default_port`) pin that a host
-  // written in capitals or with an explicit default port is NOT the registered URL.
+  // written in capitals or with an explicit default port is NOT the `aud` core-api signs.
   if (claims.iss !== deps.apiOrigin) {
     return fail(
       'wrong_issuer',

@@ -33,9 +33,10 @@ export interface CraftedAIOptions {
   /** Default `CRAFTEDAI_CHAT_ORIGIN` or `https://chat.craftedai.co`. Serves widget.js and the frame. */
   chatOrigin?: string;
   /**
-   * The MCP URL exactly as registered in CraftedAI (request-token `aud`). Set it
-   * when the server sits behind a proxy or load balancer and sees an internal
-   * URL (spec §12.1). Default `CRAFTEDAI_PUBLIC_URL`, else derived per request.
+   * The MCP URL as CraftedAI signs it (request-token `aud`: lower-case host, no default port,
+   * `/` for a bare origin, no query). Set it when the server sits behind a proxy or load balancer
+   * and sees an internal URL (spec §12.1). Default `CRAFTEDAI_PUBLIC_URL`, else derived per
+   * request.
    */
   publicUrl?: string | readonly string[];
   /** Require a delegation token on end-user tool calls (spec §5.2 rule 8). Default true. */

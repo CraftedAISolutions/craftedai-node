@@ -1,5 +1,5 @@
 /**
- * FROZEN CONTRACT — copied verbatim from core-api (CRA-350, merged at d51e02a):
+ * FROZEN CONTRACT — copied verbatim from core-api (CRA-350 at d51e02a, re-synced with main 87b2a0a on 2026-11-05):
  *   src/domain/request-signing/request-token-wire.ts
  *   src/domain/request-signing/delegation-token-wire.ts
  *   src/domain/embed/embed-wire-constants.ts

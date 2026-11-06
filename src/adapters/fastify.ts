@@ -56,7 +56,7 @@ const rawBodies = new WeakMap<object, Buffer>();
 const contexts = new WeakMap<object, CraftedAIRequestContext>();
 
 export interface FastifyProtectOptions {
-  /** The MCP URL(s) exactly as registered in CraftedAI. Set it behind a proxy (spec §12.1). */
+  /** The MCP URL(s) as CraftedAI signs them (`aud`); set it behind a proxy (spec §12.1). */
   publicUrl?: string | readonly string[];
   /** Largest request body Fastify buffers in this scope; larger is answered 413. Default 1 MiB. */
   maxBodyBytes?: number;

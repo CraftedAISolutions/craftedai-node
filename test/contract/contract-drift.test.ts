@@ -16,7 +16,7 @@ import * as coreTestKids from './core-api/test-vector-kids.js';
 /**
  * Drift guard for the frozen contract. `./core-api/*.ts` are byte-for-byte
  * copies of core-api `src/domain/request-signing/*-wire.ts` and
- * `src/domain/embed/embed-wire-constants.ts` (CRA-350, merged at d51e02a); the
+ * `src/domain/embed/embed-wire-constants.ts` (CRA-350 at d51e02a, re-synced with main 87b2a0a on 2026-11-05); the
  * `contract-sync` CI job fails when they differ from core-api `main`.
  */
 
