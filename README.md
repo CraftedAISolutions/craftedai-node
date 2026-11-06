@@ -263,7 +263,9 @@ origin; `sub` is your org id; `aud` is your MCP URL; `exp` in the future and `ia
 ahead; `jti` unseen; `bh` = base64url(SHA-256(raw body)); and on calls with `act`, an
 `X-CraftedAI-Actor-Delegation` HS256 JWT keyed with the UTF-8 bytes of your app secret
 (`iss craftedai-node`, `aud craftedai-delegation`, `sub` = `act.externalUserId`, `org` = your org
-id), at most 20 uses. The repository's `test/vectors/request-token.json` holds test vectors for
+id), at most 20 uses. Record each `jti`, and each delegation's use counter, until its `exp` plus 120 s
+(twice the 60 s skew allowance: the recorder's clock may run ahead and a verifier's behind), or a
+replay can slip through between instances. The repository's `test/vectors/request-token.json` holds test vectors for
 every reason code.
 
 ## License

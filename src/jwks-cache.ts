@@ -52,7 +52,7 @@ const MAX_KID_LENGTH = 128;
  * triggers one refetch, at most once every 30 s, so a flood of forged kids
  * cannot turn the MCP into a JWKS amplifier. Concurrent misses share one fetch.
  * The 30 s throttle applies to failed fetches too. A failed refetch keeps
- * serving the last good key set; with none, every lookup is `unavailable`.
+ * serving the last good key set for at most 24 h; with none, every lookup is `unavailable`.
  *
  * Every key is validated with the strict contract mirror (OKP/Ed25519, no
  * private member); invalid keys, kids listed twice, and the published
