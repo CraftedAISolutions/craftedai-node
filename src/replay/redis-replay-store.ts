@@ -130,9 +130,14 @@ class RedisReplayStore implements ReplayStore {
     return outcome;
   }
 
-  /** Milliseconds until `expiresAtSeconds`, never below 1 s. */
+  /**
+   * Whole milliseconds until `expiresAtSeconds`, never below 1 s. A non-finite value throws
+   * before any write: every caller computes it before calling `client`.
+   */
   private ttlMs(expiresAtSeconds: number): number {
-    return Math.max(1_000, expiresAtSeconds * 1000 - this.now());
+    const ms = expiresAtSeconds * 1000 - this.now();
+    if (!Number.isFinite(ms)) throw new Error('replay store: invalid expiry');
+    return Math.max(1_000, Math.ceil(ms));
   }
 }
 

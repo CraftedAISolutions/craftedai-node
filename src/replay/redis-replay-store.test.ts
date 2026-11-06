@@ -70,6 +70,43 @@ describe('redisReplayStore', () => {
     expect(calls[0]?.[4]).toBe(59_750);
   });
 
+  it('★ rounds a fractional-millisecond TTL up to whole milliseconds', async () => {
+    const marked = fakeRedis();
+    await redisReplayStore(marked.client, { now: () => NOW_S * 1000 + 0.4 }).markOnce(
+      'j',
+      NOW_S + 60,
+    );
+    expect(marked.calls[0]?.[4]).toBe(60_000);
+
+    const recorded = fakeRedis(0);
+    await redisReplayStore(recorded.client, { now: () => NOW_S * 1000 + 0.4 }).recordRequest({
+      jtiKey: 'req:j',
+      jtiExpiresAtSeconds: NOW_S + 60,
+      delegation: { key: 'del:d', limit: 20, expiresAtSeconds: NOW_S + 300 },
+    });
+    expect(recorded.calls[0]).toEqual(expect.arrayContaining(['60000', '300000']));
+  });
+
+  it.each([Number.NaN, Number.POSITIVE_INFINITY])(
+    '★ refuses a non-finite expiry before any Redis call (clock %s)',
+    async (clock) => {
+      const { client, calls } = fakeRedis(0);
+      const store = redisReplayStore(client, { now: () => clock });
+      await expect(store.markOnce('j', NOW_S + 60)).rejects.toThrow('replay store: invalid expiry');
+      await expect(store.increment('d', NOW_S + 300)).rejects.toThrow(
+        'replay store: invalid expiry',
+      );
+      await expect(
+        store.recordRequest({
+          jtiKey: 'req:j',
+          jtiExpiresAtSeconds: NOW_S + 60,
+          delegation: { key: 'del:d', limit: 20, expiresAtSeconds: NOW_S + 300 },
+        }),
+      ).rejects.toThrow('replay store: invalid expiry');
+      expect(calls).toEqual([]);
+    },
+  );
+
   describe('strict reply parsing', () => {
     const clientWith = (overrides: Partial<RedisLikeClient>): RedisLikeClient => ({
       get: () => Promise.resolve(null),

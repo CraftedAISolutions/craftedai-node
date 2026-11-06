@@ -14,6 +14,7 @@ import {
 } from './claims.js';
 import {
   ACTOR_DELEGATION_HEADER,
+  DELEGATION_MAX_CLOCK_SKEW_SECONDS,
   REQUEST_TOKEN_ALG,
   REQUEST_TOKEN_HEADER,
   REQUEST_TOKEN_MAX_CLOCK_SKEW_SECONDS,
@@ -126,7 +127,11 @@ export async function verifyRawRequest(
   request: RawRequest,
   deps: VerifierDeps,
 ): Promise<VerifyResult> {
-  const nowSeconds = Math.floor(deps.now() / 1000);
+  const nowMs = deps.now();
+  if (!Number.isFinite(nowMs)) {
+    throw new CraftedAIError('config_invalid', 'now() must return a finite number of milliseconds');
+  }
+  const nowSeconds = Math.floor(nowMs / 1000);
 
   const token = request.header(REQUEST_TOKEN_HEADER);
   if (token === undefined || token.length === 0) return fail('missing_token');
@@ -234,14 +239,16 @@ export async function verifyRawRequest(
     delegation = {
       key: `del:${delegationClaims.jti}`,
       limit: deps.delegationCallLimit,
-      expiresAtSeconds: delegationClaims.exp,
+      expiresAtSeconds: delegationClaims.exp + DELEGATION_MAX_CLOCK_SKEW_SECONDS,
     };
   }
 
   // Commit, last: record the jti and count the delegation use in one atomic store call.
+  // Records outlive the token by the clock-skew allowance (60 s), so another instance whose
+  // clock is up to 60 s behind the recorder's still sees them.
   const outcome = await deps.replay.recordRequest({
     jtiKey,
-    jtiExpiresAtSeconds: claims.exp,
+    jtiExpiresAtSeconds: claims.exp + REQUEST_TOKEN_MAX_CLOCK_SKEW_SECONDS,
     ...(delegation !== undefined ? { delegation } : {}),
   });
   // Fail closed: only an explicit 'recorded' passes. A custom or plain-JS store that answers
