@@ -6,10 +6,11 @@ export interface MemoryReplayStoreOptions {
    * Most live entries kept; an integer >= 2 (a delegated request writes two
    * entries, and a limit of 1 would evict the jti it just recorded). When full,
    * expired entries are dropped first, then the oldest live one, which opens a
-   * replay window. Request jtis live 60 s and delegation counters up to 300 s,
-   * and both share this capacity, so at the default the window opens above
-   * ~1,300 requests/s when delegations are reused (about 20 uses each) and as
-   * low as ~270 requests/s when every request carries its own delegation.
+   * replay window. Request jtis live 180 s (60 s token + 120 s skew margin) and
+   * delegation counters up to 420 s (300 s + 120 s), and both share this
+   * capacity, so at the default the window opens above ~490 requests/s when
+   * delegations are reused (about 20 uses each) and as low as ~160 requests/s
+   * when every request carries its own delegation.
    * Default 100,000.
    */
   maxEntries?: number;
