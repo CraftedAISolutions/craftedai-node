@@ -26,6 +26,9 @@ import { CraftedAIError } from './errors.js';
 import type { JwksCache } from './jwks-cache.js';
 import type { RecordRequestInput, ReplayStore } from './replay/replay-store.js';
 
+/** Recorder up to 60 s ahead plus another instance up to 60 s behind: twice the skew allowance. */
+const REPLAY_RECORD_SKEW_FACTOR = 2;
+
 /** What a verified request carries into the MCP handler (`req.craftedai`). */
 export interface CraftedAIRequestContext {
   /** The CraftedAI organization (`sub`), always equal to `CRAFTEDAI_ORG_ID`. */
@@ -239,16 +242,19 @@ export async function verifyRawRequest(
     delegation = {
       key: `del:${delegationClaims.jti}`,
       limit: deps.delegationCallLimit,
-      expiresAtSeconds: delegationClaims.exp + DELEGATION_MAX_CLOCK_SKEW_SECONDS,
+      expiresAtSeconds:
+        delegationClaims.exp + REPLAY_RECORD_SKEW_FACTOR * DELEGATION_MAX_CLOCK_SKEW_SECONDS,
     };
   }
 
   // Commit, last: record the jti and count the delegation use in one atomic store call.
-  // Records outlive the token by the clock-skew allowance (60 s), so another instance whose
-  // clock is up to 60 s behind the recorder's still sees them.
+  // Records outlive the token by REPLAY_RECORD_SKEW_FACTOR skew allowances (2 x 60 s): the
+  // recorder may be up to 60 s ahead and another instance up to 60 s behind, and the record's
+  // TTL runs on the recorder's clock.
   const outcome = await deps.replay.recordRequest({
     jtiKey,
-    jtiExpiresAtSeconds: claims.exp + REQUEST_TOKEN_MAX_CLOCK_SKEW_SECONDS,
+    jtiExpiresAtSeconds:
+      claims.exp + REPLAY_RECORD_SKEW_FACTOR * REQUEST_TOKEN_MAX_CLOCK_SKEW_SECONDS,
     ...(delegation !== undefined ? { delegation } : {}),
   });
   // Fail closed: only an explicit 'recorded' passes. A custom or plain-JS store that answers

@@ -185,8 +185,8 @@ describe('verifyRawRequest — sequences the vectors cannot express', () => {
     expect(recordRequest).toHaveBeenCalledTimes(1);
     expect(recordRequest).toHaveBeenCalledWith({
       jtiKey: `req:${decodeJti(token)}`,
-      jtiExpiresAtSeconds: NOW + 120,
-      delegation: { key: `del:${delegationJti}`, limit: 20, expiresAtSeconds: NOW + 360 },
+      jtiExpiresAtSeconds: NOW + 180,
+      delegation: { key: `del:${delegationJti}`, limit: 20, expiresAtSeconds: NOW + 420 },
     });
   });
 
@@ -198,7 +198,7 @@ describe('verifyRawRequest — sequences the vectors cannot express', () => {
     expect((await verifyRawRequest(req(token, CALL_BODY), deps)).ok).toBe(true);
     expect(recordRequest).toHaveBeenCalledWith({
       jtiKey: `req:${decodeJti(token)}`,
-      jtiExpiresAtSeconds: NOW + 120,
+      jtiExpiresAtSeconds: NOW + 180,
     });
   });
 
@@ -220,6 +220,33 @@ describe('verifyRawRequest — sequences the vectors cannot express', () => {
       expect(recordRequest).not.toHaveBeenCalled();
     },
   );
+
+  it('★ a replay is refused when the recorder is 59 s ahead and the verifier 50 s behind', async () => {
+    let realMs = NOW * 1000;
+    const recorderOffsetMs = 59_000;
+    const deadlines = new Map<string, number>();
+    const store: ReplayStore = {
+      has: (key) => Promise.resolve((deadlines.get(key) ?? 0) > realMs),
+      markOnce: () => Promise.reject(new Error('unused')),
+      count: () => Promise.reject(new Error('unused')),
+      increment: () => Promise.reject(new Error('unused')),
+      recordRequest: ({ jtiKey, jtiExpiresAtSeconds }) => {
+        if ((deadlines.get(jtiKey) ?? 0) > realMs) return Promise.resolve('replayed');
+        const ttlMs = jtiExpiresAtSeconds * 1000 - (realMs + recorderOffsetMs);
+        deadlines.set(jtiKey, realMs + ttlMs);
+        return Promise.resolve('recorded');
+      },
+    };
+    const recorder = harness({ replay: store, now: () => realMs + recorderOffsetMs });
+    const behind = harness({ replay: store, now: () => realMs - 50_000 });
+    const token = await signRequest({ body: CALL_BODY });
+    expect((await verifyRawRequest(req(token, CALL_BODY), recorder.deps)).ok).toBe(true);
+    realMs = (NOW + 100) * 1000;
+    expect(await verifyRawRequest(req(token, CALL_BODY), behind.deps)).toEqual({
+      ok: false,
+      reason: 'replayed',
+    });
+  });
 
   it('★ a replay is refused by a verifier whose clock is 59 s behind, after the token expired for the recorder', async () => {
     let realMs = NOW * 1000;
