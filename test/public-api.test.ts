@@ -8,7 +8,13 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { printed } from './helpers/printed.js';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
-const INTERNALS = ['allowTestVectorKeys', 'maxStalenessMs', 'JwksCache', 'JwksCacheOptions'];
+const INTERNALS = [
+  'allowTestVectorKeys',
+  'maxStalenessMs',
+  'JwksCache',
+  'JwksCacheOptions',
+  'verifyRaw',
+];
 
 describe('public type surface (review correction 5)', () => {
   let outDir: string;
