@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
 # Starts core-api (postgres, redis, api, worker) from a core-api checkout for the e2e.
 # Usage: e2e/start-core-api.sh <path-to-core-api-checkout>
+#
+# Local run (the e2e is its own compose project, `craftedai-node-e2e`):
+#   - set E2E_POSTGRES_PORT / E2E_REDIS_PORT when ports 5433 / 6380 are taken;
+#   - point GITHUB_ENV at a scratch file, then export EMBED_SIGNING_KEYS from it before
+#     `npm run test:e2e`, because compose needs it to parse the overlay;
+#   - tear down with
+#     EMBED_SIGNING_KEYS='[]' docker compose -f <core-api>/docker-compose.yml \
+#       -f e2e/docker-compose.e2e.yml --project-directory <core-api> down -v --remove-orphans --rmi local
 set -euo pipefail
 CORE_API_DIR="$(cd "$1" && pwd)"
 OVERLAY="$(cd "$(dirname "$0")" && pwd)/docker-compose.e2e.yml"
@@ -13,8 +21,8 @@ compose build api
 ENTRY="$(compose run --rm --no-deps -T api npm run -s signing-key:generate)"
 EMBED_SIGNING_KEYS="[$(echo "$ENTRY" | jq -c '.status = "current"')]"
 export EMBED_SIGNING_KEYS
-# Keep the private key out of any CI log line (no-op outside GitHub Actions).
-echo "::add-mask::$(echo "$ENTRY" | jq -r '.privateJwk.d')"
+# Keep the private key out of any CI log line (only under GitHub Actions).
+if [ "${GITHUB_ACTIONS:-}" = true ]; then echo "::add-mask::$(echo "$ENTRY" | jq -r '.privateJwk.d')"; fi
 echo "EMBED_SIGNING_KEYS=$EMBED_SIGNING_KEYS" >> "${GITHUB_ENV:-/dev/null}"
 
 compose up -d --wait postgres redis

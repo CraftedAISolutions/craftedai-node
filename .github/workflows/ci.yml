@@ -114,9 +114,7 @@ jobs:
   # Which core-api ref runs is configurable, default `main`:
   #   - manual run:  gh workflow run ci.yml -f core_api_ref=<branch>
   #   - any trigger: set the repository variable CORE_API_REF (Settings > Variables > Actions)
-  # Until CRA-351 (the server-key endpoint and the other onboarding endpoints) is merged, core-api
-  # `main` does not have them: point this job at `feature/CRA-351-easy-onboarding`, then drop the
-  # variable once it is merged.
+  # CRA-351 is merged, so core-api main has every endpoint the e2e calls.
   e2e:
     name: e2e against core-api in Docker
     runs-on: ubuntu-latest
