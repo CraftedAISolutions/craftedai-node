@@ -17,7 +17,8 @@ export interface EnvMergeResult {
   skipped: { key: string; existing: string }[];
 }
 
-const ASSIGNMENT_RE = /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=(.*)$/;
+/** `KEY=value`, and dotenv's `KEY: value` (the colon needs whitespace after it, as in dotenv). */
+const ASSIGNMENT_RE = /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)(?:\s*=|:(?:\s|$))(.*)$/;
 const KEY_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const BLOCK_HEADER = '# Added by npx craftedai init';
 

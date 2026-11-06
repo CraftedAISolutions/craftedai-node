@@ -65,6 +65,21 @@ describe('mergeEnv (spec §12.4)', () => {
     ]);
   });
 
+  it('★ treats the dotenv `KEY: value` form as an existing assignment and appends nothing for it', () => {
+    const existing = 'CRAFTEDAI_APP_SECRET: old\nCRAFTEDAI_SECRET_KEY:  "cai_old"  # note\n';
+    const result = mergeEnv(existing, ENTRIES);
+    expect(result.content).toBe(existing);
+    expect(result.written).toEqual([]);
+    expect(result.skipped).toEqual([
+      { key: 'CRAFTEDAI_SECRET_KEY', existing: 'cai_old' },
+      { key: 'CRAFTEDAI_APP_SECRET', existing: 'old' },
+    ]);
+  });
+
+  it('does not read `KEY:value` (no space) as an assignment, as dotenv does not', () => {
+    expect([...parseEnvKeys('A:1\nB: 2')]).toEqual([['B', '2']]);
+  });
+
   it('skips a key whose value is empty instead of filling it (library Ruling 11)', () => {
     for (const empty of [
       'CRAFTEDAI_APP_SECRET=',
